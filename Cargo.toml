@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "rustenger-server",
+    "rustenger-client-console",
+    "rustenger-codec",
+]
