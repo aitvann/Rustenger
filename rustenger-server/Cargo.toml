@@ -10,7 +10,7 @@ license = "Apache-2.0"
 
 [dependencies]
 futures = "0.3"
-tokio = { version = "0.2", features = ["tcp", "stream", "net", "macros", "io-util"] }
+tokio = { version = "0.2", features = ["tcp", "stream", "net", "macros", "io-util", "sync"] }
 tokio-util = { version = "0.2", features = ["codec"] }
 
 tokio-postgres = "0.5"

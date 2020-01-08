@@ -1,6 +1,7 @@
 #![feature(async_closure)]
 use tokio::{net::TcpListener, prelude::*};
 
+mod server;
 mod utils;
 
 const DEFAULT_ADDR: &'static str = "0.0.0.0:4732";

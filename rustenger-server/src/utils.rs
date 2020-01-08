@@ -49,7 +49,7 @@ where
                 })
                 .level(LevelFilter::Info)
                 .filter(|md| md.target() != "messenges")
-                .chain(general)
+                .chain(general),
         )
         .chain(
             Dispatch::new()
