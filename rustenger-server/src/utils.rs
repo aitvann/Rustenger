@@ -22,16 +22,6 @@ where
         .debug(Color::BrightWhite)
         .trace(Color::Magenta);
 
-    let no_msg_format = move |out: FormatCallback<'_>, msg: &Arguments<'_>, record: &Record<'_>| {
-        out.finish(format_args!(
-            "{}: [{} - {}] {}",
-            Local::now().format("[%Y-%m-%d][%H:%M:%S]"),
-            record.target(),
-            colors.color(record.level()),
-            msg,
-        ));
-    };
-
     Dispatch::new()
         .chain(
             Dispatch::new()
@@ -48,14 +38,30 @@ where
         )
         .chain(
             Dispatch::new()
-                .format(no_msg_format)
+                .format(|out, msg, record| {
+                    out.finish(format_args!(
+                        "{}: [{} - {}] {}",
+                        Local::now().format("[%Y-%m-%d][%H:%M:%S]"),
+                        record.target(),
+                        record.level(),
+                        msg,
+                    ));
+                })
                 .level(LevelFilter::Info)
                 .filter(|md| md.target() != "messenges")
-                .chain(general),
+                .chain(general)
         )
         .chain(
             Dispatch::new()
-                .format(no_msg_format)
+                .format(move |out, msg, record| {
+                    out.finish(format_args!(
+                        "{}: [{} - {}] {}",
+                        Local::now().format("[%Y-%m-%d][%H:%M:%S]"),
+                        record.target(),
+                        colors.color(record.level()),
+                        msg,
+                    ));
+                })
                 .level(LevelFilter::Trace)
                 .filter(|md| md.target() != "messenges")
                 .chain(io::stdout()),
