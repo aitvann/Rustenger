@@ -3,4 +3,5 @@ members = [
     "rustenger-server",
     "rustenger-client-console",
     "rustenger-codec",
+    "rustenger-shared",
 ]

@@ -10,10 +10,10 @@ where
     use chrono::Local;
     use fern::{
         colors::{Color, ColoredLevelConfig},
-        Dispatch, FormatCallback,
+        Dispatch,
     };
-    use log::{LevelFilter, Record};
-    use std::{fmt::Arguments, io};
+    use log::LevelFilter;
+    use std::io;
 
     let colors = ColoredLevelConfig::new()
         .error(Color::Red)
