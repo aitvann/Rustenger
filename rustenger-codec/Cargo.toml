@@ -9,6 +9,7 @@ rustenger-shared = { version = "0", path = "../rustenger-shared" }
 tokio-util = { version = "0.2", features = ["codec"] }
 serde = { version = "1.0", features = ["derive"] }
 bincode = "1.2"
+byteorder = "1.3"
 arrayvec = { version = "0.5", features = ["serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 bytes = "0.5"
