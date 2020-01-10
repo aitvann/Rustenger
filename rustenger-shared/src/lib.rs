@@ -1,6 +1,8 @@
 use arrayvec::ArrayString;
 use serde::{Serialize, Deserialize};
 
+pub mod codec;
+
 pub type AccountName = ArrayString<[u8; 64]>; 
 pub type RoomName = ArrayString<[u8; 64]>;
 
@@ -12,5 +14,12 @@ pub struct Account {
 
 #[derive(Serialize, Deserialize)]
 pub enum Color {
-
+    Black,
+    Red,
+    Green,
+    Yellow,
+    Blue,
+    Magenta,
+    Cyan,
+    White,
 }
