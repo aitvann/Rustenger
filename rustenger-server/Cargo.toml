@@ -9,6 +9,8 @@ readme = "README.md"
 license = "Apache-2.0"
 
 [dependencies]
+rustenger-shared = { version = "0", path = "../rustenger-shared" }
+
 futures = "0.3"
 tokio = { version = "0.2", features = ["tcp", "stream", "net", "macros", "io-util", "sync"] }
 tokio-util = { version = "0.2", features = ["codec"] }
@@ -25,3 +27,4 @@ pin-project = "0.4"
 thiserror = "1.0"
 chrono = "0.4"
 clap = "2.33"
+bincode = "1.2"

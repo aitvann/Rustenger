@@ -2,17 +2,19 @@ use arrayvec::ArrayString;
 use serde::{Serialize, Deserialize};
 
 pub mod codec;
+pub mod message;
 
-pub type AccountName = ArrayString<[u8; 64]>; 
-pub type RoomName = ArrayString<[u8; 64]>;
+pub type UserName = ArrayString<[u8; 32]>; 
+pub type AccountPassword = ArrayString<[u8; 32]>;
+pub type RoomName = ArrayString<[u8; 32]>;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Account {
-    name: AccountName,
+    name: UserName,
     color: Color,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum Color {
     Black,
     Red,

@@ -4,16 +4,17 @@ use std::{
 };
 use thiserror::Error;
 use tokio::sync::{mpsc, Mutex, RwLock};
+use rustenger_shared::RoomName;
 
 mod room;
-use room::{Room, RoomMessage, RoomMsgTx, User};
+use room::{Room, RoomMessage, RoomMsgTx, Client};
 
 #[derive(Error, Debug)]
-enum ServerError<'a> {
+enum ServerError {
     #[error("room '{0}' already exist")]
-    RoomAlreadyExist(&'a str),
+    RoomAlreadyExist(RoomName),
     #[error("room '{0}' does not exist")]
-    RoomDoesNotExits(&'a str),
+    RoomDoesNotExits(RoomName),
     #[error("send error: {0}")]
     SendError(mpsc::error::SendError<RoomMessage>),
 }
@@ -23,11 +24,11 @@ enum ServerError<'a> {
 // used Mutex for ServerRoomMessage because it is always used for writing
 /// A mediator between Rooms, contains links to each room and is accessible from each room
 #[derive(Clone)]
-struct Server<'a> {
-    links: Arc<RwLock<HashMap<&'a str, Mutex<RoomMsgTx>>>>,
+struct Server {
+    links: Arc<RwLock<HashMap<RoomName, Mutex<RoomMsgTx>>>>,
 }
 
-impl<'a> Server<'a> {
+impl Server {
     pub fn new() -> Self {
         let raw_links = HashMap::new();
         let links = Arc::new(RwLock::new(raw_links));
@@ -35,15 +36,15 @@ impl<'a> Server<'a> {
     }
 
     /// create link to room with name 'name'
-    pub async fn create_link(&self, name: &'a str) -> Result<(), ServerError<'a>> {
+    pub async fn create_link(&self, name: &RoomName) -> Result<(), ServerError> {
         let (msg_tx, msg_rx) = mpsc::channel(64);
 
-        let users = HashMap::new();
-        let _room = Room { users, msg_rx };
+        let clients = HashMap::new();
+        let _room = Room { clients, msg_rx };
 
         let mut lock = self.links.write().await;
-        match lock.entry(name) {
-            Entry::Occupied(_) => Err(ServerError::RoomAlreadyExist(name)),
+        match lock.entry(name.clone()) {
+            Entry::Occupied(_) => Err(ServerError::RoomAlreadyExist(name.clone())),
             Entry::Vacant(entry) => {
                 entry.insert(Mutex::new(msg_tx));
                 // tokio::spawn(room);
@@ -53,26 +54,26 @@ impl<'a> Server<'a> {
     }
 
     /// remove link to room with name 'name'
-    pub async fn revome_link(&self, name: &'a str) -> Result<(), ServerError<'a>> {
+    pub async fn revome_link(&self, name: &RoomName) -> Result<(), ServerError> {
         let mut lock = self.links.write().await;
-        match lock.entry(name) {
+        match lock.entry(name.clone()) {
             Entry::Occupied(entry) => {
                 entry.remove();
                 Ok(())
             }
-            Entry::Vacant(_) => Err(ServerError::RoomDoesNotExits(name)),
+            Entry::Vacant(_) => Err(ServerError::RoomDoesNotExits(name.clone())),
         }
     }
 
     /// inser user 'user' into room with name 'room_name'
-    pub async fn insert_user(&self, user: User, room_name: &'a str) -> Result<(), ServerError<'a>> {
+    pub async fn insert_user(&self, client: Client, room_name: &RoomName) -> Result<(), ServerError> {
         let lock = self.links.read().await;
         let msg_tx = lock
             .get(room_name)
-            .ok_or(ServerError::RoomDoesNotExits(room_name))?;
+            .ok_or(ServerError::RoomDoesNotExits(room_name.clone()))?;
         let mut msg_tx_lock = msg_tx.lock().await;
         msg_tx_lock
-            .send(RoomMessage::InsertUser(user))
+            .send(RoomMessage::InsertClient(client))
             .await
             .map_err(ServerError::SendError)
     }

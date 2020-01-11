@@ -1,99 +1,16 @@
-use super::{Color, Account, RoomName, AccountName};
 use tokio_util::codec::{Decoder, Encoder};
-use serde::{Serialize, Deserialize};
 use bytes::{BytesMut, Buf, BufMut};
 use byteorder::{BigEndian, ByteOrder};
-use arrayvec::ArrayString;
-use chrono::{Utc, DateTime};
-
-pub type MessageText = ArrayString<[u8; 1024]>;
-
-#[derive(Serialize, Deserialize)]
-pub struct UserMessage {
-    text: MessageText,
-    addresser_name: AccountName, 
-    utc: DateTime<Utc>, 
-}
-
-/// message from client
-/// when the client sends Request, it must wait
-/// and ignore all messages until it receives a Response
-#[derive(Serialize, Deserialize)]
-pub enum ClientMessage {
-    UserMessage(UserMessage),
-    Command(Command),
-    Request(Request),
-}
-
-impl ClientMessage {
-    pub fn user_message(&self) -> Option<&UserMessage> {
-        match self {
-            Self::UserMessage(x) => Some(x),
-            _ => None
-        }
-    }
-
-    pub fn command(&self) -> Option<&Command> {
-        match self {
-            Self::Command(x) => Some(x),
-            _ => None
-        }
-    }
-
-    pub fn request(&self) -> Option<&Request> {
-        match self {
-            Self::Request(x) => Some(x),
-            _ => None
-        }
-    }
-}
-
-/// command to server, remains without response
-#[derive(Serialize, Deserialize)]
-pub enum Command {
-    RoomsList,
-    SelectColor(Color),
-}
-
-/// server request
-#[derive(Serialize, Deserialize)]
-pub enum Request {
-    DeleteAccount,
-    SelectRoom(RoomName),
-}
-
-/// message form server
-#[derive(Serialize, Deserialize)]
-pub enum ServerMessage {
-    UserMessage(UserMessage),
-    Response(Response),
-}
-
-impl ServerMessage {
-    pub fn user_message(&self) -> Option<&UserMessage> {
-        match self {
-            Self::UserMessage(x) => Some(x),
-            _ => None
-        }
-    }
-
-    pub fn response(&self) -> Option<&Response> {
-        match self {
-            Self::Response(x) => Some(x),
-            _ => None
-        }
-    }
-}
-
-/// response to Command::Request
-#[derive(Serialize, Deserialize)]
-pub enum Response {
-    RoomsList(Vec<RoomName>),
-    RoomAccountsList(Vec<Account>),
-}
+use crate::message::{ServerMessage, ClientMessage};
 
 /// Codec for Client -> Server transport
 pub struct ClientCodec;
+
+impl ClientCodec {
+    pub fn new() -> Self {
+        Self
+    }
+}
 
 impl Encoder for ClientCodec {
     type Item = ClientMessage;
@@ -155,6 +72,12 @@ impl Decoder for ClientCodec {
 
 /// Codec for Server -> Client transport
 pub struct ServerCodec;
+
+impl ServerCodec {
+    pub fn new() -> Self {
+        Self
+    }
+}
 
 impl Encoder for ServerCodec {
     type Item = ServerMessage;
