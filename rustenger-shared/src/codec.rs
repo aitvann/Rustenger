@@ -1,7 +1,7 @@
-use tokio_util::codec::{Decoder, Encoder};
-use bytes::{BytesMut, Buf, BufMut};
+use crate::message::{ClientMessage, ServerMessage};
 use byteorder::{BigEndian, ByteOrder};
-use crate::message::{ServerMessage, ClientMessage};
+use bytes::{Buf, BufMut, BytesMut};
+use tokio_util::codec::{Decoder, Encoder};
 
 /// Codec for Client -> Server transport
 pub struct ClientCodec;
@@ -29,7 +29,6 @@ impl Encoder for ClientCodec {
         }
 
         Ok(())
-
 
         // safe but with copy variant:
         // let msg = bincode::serialize(&item)?;
@@ -96,7 +95,6 @@ impl Encoder for ServerCodec {
         }
 
         Ok(())
-
 
         // safe but with copy variant:
         // let msg = bincode::serialize(&item)?;

@@ -1,7 +1,7 @@
-use super::{Color, Account, RoomName, UserName, AccountPassword};
-use serde::{Serialize, Deserialize};
+use super::{Account, Color, Password, RoomName, Username};
 use arrayvec::ArrayString;
-use chrono::{Utc, DateTime};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 pub type MessageText = ArrayString<[u8; 1024]>;
@@ -9,8 +9,8 @@ pub type MessageText = ArrayString<[u8; 1024]>;
 #[derive(Serialize, Deserialize)]
 pub struct UserMessage {
     text: MessageText,
-    addresser_name: UserName, 
-    utc: DateTime<Utc>, 
+    addresser_name: Username,
+    utc: DateTime<Utc>,
 }
 
 /// message from client
@@ -23,17 +23,17 @@ pub enum ClientMessage {
 }
 
 impl ClientMessage {
-    pub fn user_message(&self) -> Option<&UserMessage> {
+    pub fn user_message(self) -> Option<UserMessage> {
         match self {
             Self::UserMessage(x) => Some(x),
-            _ => None
+            _ => None,
         }
     }
 
-    pub fn command(&self) -> Option<&Command> {
+    pub fn command(self) -> Option<Command> {
         match self {
             Self::Command(x) => Some(x),
-            _ => None
+            _ => None,
         }
     }
 }
@@ -41,8 +41,8 @@ impl ClientMessage {
 /// command to server
 #[derive(Serialize, Deserialize)]
 pub enum Command {
-    LogIn(UserName, AccountPassword),
-    SignUp(UserName, AccountPassword),
+    LogIn(Username, Password),
+    SignUp(Username, Password),
     SelectRoom(RoomName),
     RoomsList,
     SelectColor(Color),
@@ -59,17 +59,17 @@ pub enum ServerMessage {
 }
 
 impl ServerMessage {
-    pub fn user_message(&self) -> Option<&UserMessage> {
+    pub fn user_message(self) -> Option<UserMessage> {
         match self {
             Self::UserMessage(x) => Some(x),
-            _ => None
+            _ => None,
         }
     }
 
-    pub fn response(&self) -> Option<&Response> {
+    pub fn response(self) -> Option<Response> {
         match self {
             Self::Response(x) => Some(x),
-            _ => None
+            _ => None,
         }
     }
 }
@@ -79,18 +79,13 @@ impl ServerMessage {
 pub enum Response {
     RoomsList(Vec<RoomName>),
     RoomAccountsList(Vec<Account>),
-    LogInResult(Result<(), LogInError>),
-    SignUpResult(Result<(), SignUpError>),
+    SignInResult(Result<(), SignInError>),
 }
 
-#[derive(Error, Debug, Serialize, Deserialize)]
-pub enum LogInError {
+#[derive(Error, Clone, Debug, Serialize, Deserialize)]
+pub enum SignInError {
     #[error("invalid username or password")]
     InvalidUserNamePassword,
-}
-
-#[derive(Error, Debug, Serialize, Deserialize)]
-pub enum SignUpError {
     #[error("this username already used")]
     UserNameAlreadyUsed,
 }

@@ -1,8 +1,12 @@
-use rustenger_shared::{codec::ServerCodec, message::{ClientMessage, Command}, Account};
+use futures::{future::ready, SinkExt, StreamExt};
+use rustenger_shared::{
+    codec::ServerCodec,
+    message::{ClientMessage, Command, Response, ServerMessage, SignInError},
+    Account, Color, Password, Username,
+};
+use std::fmt;
 use tokio::net::TcpStream;
 use tokio_util::codec::Framed;
-use futures::StreamExt;
-use std::fmt;
 
 pub struct Client {
     framed: Framed<TcpStream, ServerCodec>,
@@ -10,51 +14,62 @@ pub struct Client {
 }
 
 impl Client {
-    /// log in or sign up user, user can exit at that moment and then Ok(None) is returned
     pub async fn new(stream: TcpStream) -> Result<Option<Self>, bincode::Error> {
         let codec = ServerCodec::new();
         let mut framed = Framed::new(stream, codec);
 
-        if let Some(account) = Self::sign_in(&mut framed).await? {
-            let client = Self { framed, account };
-            return Ok(Some(client))
-        }
+        let client = Self::sign_in(&mut framed)
+            .await?
+            .map(|account| Self { framed, account });
 
-        Ok(None)
+        Ok(client)
     }
 
-    async fn sign_in(framed: &mut Framed<TcpStream, ServerCodec>) -> Result<Option<Account>, bincode::Error> {
-        while let Some(msg) = framed.next().await.transpose()? {
+    /// log in or sign up user, user can exit at that moment and then Ok(None) is returned
+    async fn sign_in(
+        framed: &mut Framed<TcpStream, ServerCodec>,
+    ) -> Result<Option<Account>, bincode::Error> {
+        while let Some(cmd) = framed
+            .filter_map(|r| ready(r.map(ClientMessage::command).transpose()))
+            .next()
+            .await
+            .transpose()?
+        {
             use Command::*;
 
-            if let ClientMessage::Command(cmd) = msg {
-                match cmd {
-                    LogIn(username, password) => continue,
-                    SignUp(username, password) => continue,
-                    Exit => return Ok(None),
-                    _ => continue,
-                }
-            } 
+            let res = match cmd {
+                LogIn(un, pw) => Self::log_in(un, pw),
+                SignUp(un, pw) => Self::sing_up(un, pw),
+                Exit => return Ok(None),
+                _ => continue,
+            };
+
+            let response = Response::SignInResult(res.clone().map(|_| ()));
+            framed.send(ServerMessage::Response(response));
+
+            return match res {
+                Err(_) => continue,
+                Ok(acc) => Ok(Some(acc)),
+            };
         }
 
         Ok(None)
     }
 
-    async fn log_in() -> () {
-
+    // TODO
+    fn log_in(_username: Username, _password: Password) -> Result<Account, SignInError> {
+        let err = SignInError::InvalidUserNamePassword;
+        Err(err)
     }
 
-    async fn sing_up() -> () {
-
+    // TODO
+    fn sing_up(username: Username, _password: Password) -> Result<Account, SignInError> {
+        let color = Color::White;
+        let acc = Account { username, color };
+        Ok(acc)
     }
 
-    pub async fn update() -> () {
-
-    }
-
-    // pub fn stream(&mut self) -> &TcpStream {
-    //     &mut self.stream
-    // }
+    pub async fn update() -> () {}
 }
 
 impl fmt::Debug for Client {
