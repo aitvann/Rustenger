@@ -6,7 +6,7 @@ use thiserror::Error;
 
 pub type MessageText = ArrayString<[u8; 1024]>;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Copy, Serialize, Deserialize)]
 pub struct UserMessage {
     text: MessageText,
     addresser_name: Username,
@@ -16,7 +16,7 @@ pub struct UserMessage {
 /// message from client
 /// when the client sends Request, it must wait
 /// and ignore all messages until it receives a Response
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Copy, Serialize, Deserialize)]
 pub enum ClientMessage {
     UserMessage(UserMessage),
     Command(Command),
@@ -39,7 +39,7 @@ impl ClientMessage {
 }
 
 /// command to server
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Copy, Serialize, Deserialize)]
 pub enum Command {
     LogIn(Username, Password),
     SignUp(Username, Password),
@@ -52,7 +52,7 @@ pub enum Command {
 }
 
 /// message form server
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub enum ServerMessage {
     UserMessage(UserMessage),
     Response(Response),
@@ -75,7 +75,7 @@ impl ServerMessage {
 }
 
 /// response to client Request
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub enum Response {
     RoomsList(Vec<RoomName>),
     RoomAccountsList(Vec<Account>),

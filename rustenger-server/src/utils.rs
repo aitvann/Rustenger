@@ -1,3 +1,5 @@
+use std::collections::hash_map::{Entry, OccupiedEntry, VacantEntry};
+
 /// initializes the logger as follows:
 ///     - user messenged -> 'messages'
 ///     - logs level Info without user messenges -> 'general'
@@ -69,4 +71,70 @@ where
         .apply()?;
 
     Ok(())
+}
+
+/// converts from Entry to Option
+pub trait EntryCheck {
+    type OccupiedOutput;
+    type VacantOutput;
+
+    fn occupied(self) -> Option<Self::OccupiedOutput>;
+    fn vacant(self) -> Option<Self::VacantOutput>;
+}
+
+impl<'a, K, V> EntryCheck for Entry<'a, K, V> {
+    type OccupiedOutput = OccupiedEntry<'a, K, V>;
+    type VacantOutput = VacantEntry<'a, K, V>;
+
+    fn occupied(self) -> Option<Self::OccupiedOutput> {
+        match self {
+            Entry::Occupied(e) => Some(e),
+            Entry::Vacant(_) => None,
+        }
+    }
+
+    fn vacant(self) -> Option<Self::VacantOutput> {
+        match self {
+            Entry::Occupied(_) => None,
+            Entry::Vacant(e) => Some(e),
+        }
+    }
+}
+
+impl<'a, K, V> EntryCheck for &'a Entry<'a, K, V> {
+    type OccupiedOutput = &'a OccupiedEntry<'a, K, V>;
+    type VacantOutput = &'a VacantEntry<'a, K, V>;
+
+    fn occupied(self) -> Option<Self::OccupiedOutput> {
+        match self {
+            Entry::Occupied(e) => Some(e),
+            Entry::Vacant(_) => None,
+        }
+    }
+
+    fn vacant(self) -> Option<Self::VacantOutput> {
+        match self {
+            Entry::Occupied(_) => None,
+            Entry::Vacant(e) => Some(e),
+        }
+    }
+}
+
+impl<'a, K, V> EntryCheck for &'a mut Entry<'a, K, V> {
+    type OccupiedOutput = &'a mut OccupiedEntry<'a, K, V>;
+    type VacantOutput = &'a mut VacantEntry<'a, K, V>;
+
+    fn occupied(self) -> Option<Self::OccupiedOutput> {
+        match self {
+            Entry::Occupied(e) => Some(e),
+            Entry::Vacant(_) => None,
+        }
+    }
+
+    fn vacant(self) -> Option<Self::VacantOutput> {
+        match self {
+            Entry::Occupied(_) => None,
+            Entry::Vacant(e) => Some(e),
+        }
+    }
 }

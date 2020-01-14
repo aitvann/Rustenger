@@ -14,7 +14,7 @@ pub struct Account {
     pub color: Color,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum Color {
     Black,
     Red,
