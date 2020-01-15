@@ -74,7 +74,7 @@ where
 }
 
 /// converts from Entry to Option
-pub trait EntryCheck {
+pub trait EntryExt {
     type OccupiedOutput;
     type VacantOutput;
 
@@ -82,7 +82,7 @@ pub trait EntryCheck {
     fn vacant(self) -> Option<Self::VacantOutput>;
 }
 
-impl<'a, K, V> EntryCheck for Entry<'a, K, V> {
+impl<'a, K, V> EntryExt for Entry<'a, K, V> {
     type OccupiedOutput = OccupiedEntry<'a, K, V>;
     type VacantOutput = VacantEntry<'a, K, V>;
 
@@ -101,7 +101,7 @@ impl<'a, K, V> EntryCheck for Entry<'a, K, V> {
     }
 }
 
-impl<'a, K, V> EntryCheck for &'a Entry<'a, K, V> {
+impl<'a, K, V> EntryExt for &'a Entry<'a, K, V> {
     type OccupiedOutput = &'a OccupiedEntry<'a, K, V>;
     type VacantOutput = &'a VacantEntry<'a, K, V>;
 
@@ -120,7 +120,7 @@ impl<'a, K, V> EntryCheck for &'a Entry<'a, K, V> {
     }
 }
 
-impl<'a, K, V> EntryCheck for &'a mut Entry<'a, K, V> {
+impl<'a, K, V> EntryExt for &'a mut Entry<'a, K, V> {
     type OccupiedOutput = &'a mut OccupiedEntry<'a, K, V>;
     type VacantOutput = &'a mut VacantEntry<'a, K, V>;
 
@@ -136,5 +136,24 @@ impl<'a, K, V> EntryCheck for &'a mut Entry<'a, K, V> {
             Entry::Occupied(_) => None,
             Entry::Vacant(e) => Some(e),
         }
+    }
+}
+
+pub trait OptionExt {
+    type Value;
+
+    fn unwrap_ref(&self) -> &Self::Value;
+    fn unwrap_mut(&mut self) -> &mut Self::Value;
+}
+
+impl<T> OptionExt for Option<T> {
+    type Value = T;
+
+    fn unwrap_ref(&self) -> &T {
+        self.as_ref().unwrap()
+    }
+
+    fn unwrap_mut(&mut self) -> &mut T {
+        self.as_mut().unwrap()
     }
 }

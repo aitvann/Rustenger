@@ -1,8 +1,9 @@
 #![feature(async_closure)]
 use tokio::{net::TcpListener, prelude::*};
 
-mod server;
 mod utils;
+mod client;
+mod room;
 
 const DEFAULT_ADDR: &'static str = "0.0.0.0:4732";
 const PATH_TO_MESENGES_LOG: &'static str = "messenges.log";
@@ -46,8 +47,7 @@ async fn main() -> std::io::Result<()> {
                 })
                 .ok()
         })
-        // Not Zero-cost Abstractions
-        .boxed()
+        .boxed_local()
         .next()
         .await
         .expect("failed to select listener address");
