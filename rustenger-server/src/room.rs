@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::utils::{EntryExt, OptionExt};
+use crate::utils::EntryExt;
 use rustenger_shared::{message::UserMessage, RoomName, Username};
 use std::{collections::HashMap, sync::Arc};
 use thiserror::Error;
@@ -27,7 +27,7 @@ impl Server {
     /// create link to room with name 'name'
     pub async fn create_room(&self, name: RoomName) -> Result<(), Error> {
         let (msg_tx, msg_rx) = mpsc::channel(64);
-        let room = Room::new(msg_rx);
+        let room = Room::new(name, msg_rx, self.clone());
 
         let mut lock = self.links.write().await;
         lock.entry(name)
@@ -40,7 +40,7 @@ impl Server {
     }
 
     /// remove link to room with name 'name'
-    pub async fn revome_link(&self, name: RoomName) -> Result<(), Error> {
+    pub async fn revome_link(self, name: RoomName) -> Result<(), Error> {
         let mut lock = self.links.write().await;
         lock.entry(name)
             .occupied()
@@ -58,7 +58,7 @@ impl Server {
             .ok_or(Error::RoomDoesNotExits(room_name))?;
 
         let mut msg_tx_lock = msg_tx.lock().await;
-        msg_tx_lock.send(client).await.map_err(Error::SendError)
+        msg_tx_lock.send(client).await.map_err(Error::Send)
     }
 }
 
@@ -69,58 +69,66 @@ enum Error {
     #[error("room '{0}' does not exist")]
     RoomDoesNotExits(RoomName),
     #[error("send error: {0}")]
-    SendError(#[from] mpsc::error::SendError<Client>),
+    Send(#[from] mpsc::error::SendError<Client>),
 }
 
 pub type Clients = HashMap<RoomName, Option<Client>>;
 
 pub struct Room {
-    pub clients: Clients,
-    pub msg_rx: RoomMsgRx,
+    name: RoomName,
+    clients: Clients,
+    msg_rx: RoomMsgRx,
+    server: Server,
 }
 
 impl Room {
     /// creates new room without links with other rooms
-    fn new(msg_rx: RoomMsgRx) -> Self {
+    fn new(name: RoomName, msg_rx: RoomMsgRx, server: Server) -> Self {
         let clients = HashMap::new();
-        Self { clients, msg_rx }
+        Self {
+            name,
+            clients,
+            msg_rx,
+            server,
+        }
     }
 
     /// runs the room
     pub async fn run(mut self) {
-        use crate::utils::EntryExt;
-        use futures::{
-            future::{self, FutureExt},
-            pin_mut,
-        };
+        use futures::future::{self, FutureExt};
         use rustenger_shared::message::ClientMessage;
 
         loop {
             {
                 let recv = future::maybe_done(self.msg_rx.recv());
-                pin_mut!(recv);
+                futures::pin_mut!(recv);
                 if let Some(client) = recv.as_mut().take_output() {
                     let client = client.unwrap();
                     self.clients.insert(client.username(), Some(client));
                 }
             }
 
-            let iter = self
-                .clients
-                .values_mut()
-                .map(|c| c.unwrap_mut().read().boxed());
-            let res = future::select_all(iter).await.0;
+            let iter = self.clients.iter_mut().map(|(name, client)| {
+                client
+                    .as_mut()
+                    .unwrap()
+                    .read()
+                    .map(move |m| (*name, m))
+                    .boxed()
+            });
+            let (name, res) = future::select_all(iter).await.0;
 
             match res {
                 Err(_e) => continue,
-                Ok((name, ClientMessage::UserMessage(msg))) => {
+                Ok(ClientMessage::UserMessage(msg)) => {
                     if let Err(_e) = self.broadcast(msg, name).await {
                         continue;
                     }
                 }
-                Ok((name, ClientMessage::Command(cmd))) => {
+                Ok(ClientMessage::Command(cmd)) => {
                     let mut entry = self.clients.entry(name).occupied().unwrap();
                     let client = entry.get_mut().take().unwrap();
+
                     match client.handle(cmd).await {
                         Err(_e) => continue,
                         Ok(None) => {
@@ -142,12 +150,23 @@ impl Room {
         for client in self
             .clients
             .values_mut()
-            .map(OptionExt::unwrap_mut)
+            .map(|c| c.as_mut().unwrap())
             .filter(|c| c.username() != skip)
         {
             client.write(ServerMessage::UserMessage(msg)).await?;
         }
 
         Ok(())
+    }
+
+    pub fn name(&self) -> RoomName {
+        self.name
+    }
+}
+
+impl Drop for Room {
+    fn drop(&mut self) {
+        let fut = self.server.clone().revome_link(self.name());
+        tokio::spawn(fut);
     }
 }

@@ -8,10 +8,29 @@ pub type Username = ArrayString<[u8; 32]>;
 pub type Password = ArrayString<[u8; 32]>;
 pub type RoomName = ArrayString<[u8; 32]>;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct Account {
-    pub username: Username,
-    pub color: Color,
+    username: Username,
+    color: Color,
+}
+
+impl Account {
+    pub fn new(username: Username) -> Self {
+        let color = Color::White;
+        Self { username, color }
+    }
+
+    pub fn with_color(username: Username, color: Color) -> Self {
+        Self { username, color }
+    }
+
+    pub fn username(&self) -> Username {
+        self.username
+    }
+
+    pub fn color(&self) -> Color {
+        self.color
+    }
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]

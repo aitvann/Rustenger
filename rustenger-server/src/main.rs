@@ -1,13 +1,13 @@
 #![feature(async_closure)]
 use tokio::{net::TcpListener, prelude::*};
 
-mod utils;
 mod client;
 mod room;
+mod utils;
 
-const DEFAULT_ADDR: &'static str = "0.0.0.0:4732";
-const PATH_TO_MESENGES_LOG: &'static str = "messenges.log";
-const PATH_TO_GENERAL_LOG: &'static str = "general.log";
+const DEFAULT_ADDR: &str = "0.0.0.0:4732";
+const PATH_TO_MESENGES_LOG: &str = "messenges.log";
+const PATH_TO_GENERAL_LOG: &str = "general.log";
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
@@ -34,23 +34,22 @@ async fn main() -> std::io::Result<()> {
 
     // selects the first available address from the arguments
     let addrs = matches.values_of("addresses").unwrap();
-    let _listener = stream::iter(addrs)
-        .filter_map(async move |a| {
-            TcpListener::bind(a)
-                .await
-                .map_err(|e| log::warn!("failed to bind to address: {}; error: {}", a, e))
-                .map(|l| {
-                    log::info!(
-                        "listener has successful bind to address: {}",
-                        l.local_addr().unwrap()
-                    )
-                })
-                .ok()
-        })
-        .boxed_local()
+    let stream = stream::iter(addrs).filter_map(async move |a| {
+        TcpListener::bind(a)
+            .await
+            .map_err(|e| log::warn!("failed to bind to address: {}; error: {}", a, e))
+            .ok()
+    });
+    futures::pin_mut!(stream);
+    let listener = stream
         .next()
         .await
         .expect("failed to select listener address");
+
+    log::info!(
+        "listener has successful bind to address: {}",
+        listener.local_addr().unwrap()
+    );
 
     Ok(())
 }

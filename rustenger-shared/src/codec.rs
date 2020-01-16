@@ -4,6 +4,7 @@ use bytes::{Buf, BufMut, BytesMut};
 use tokio_util::codec::{Decoder, Encoder};
 
 /// Codec for Client -> Server transport
+#[derive(Default)]
 pub struct ClientCodec;
 
 impl ClientCodec {
@@ -23,7 +24,7 @@ impl Encoder for ClientCodec {
         dst.put_u16(size as u16);
 
         unsafe {
-            let bytes: &mut [u8] = std::mem::transmute(dst.bytes_mut());
+            let bytes = &mut *(dst.bytes_mut() as *mut [std::mem::MaybeUninit<u8>] as *mut [u8]);
             bincode::serialize_into(bytes, &item)?;
             dst.advance_mut(size);
         }
@@ -70,6 +71,7 @@ impl Decoder for ClientCodec {
 }
 
 /// Codec for Server -> Client transport
+#[derive(Default)]
 pub struct ServerCodec;
 
 impl ServerCodec {
@@ -89,7 +91,7 @@ impl Encoder for ServerCodec {
         dst.put_u16(size as u16);
 
         unsafe {
-            let bytes: &mut [u8] = std::mem::transmute(dst.bytes_mut());
+            let bytes = &mut *(dst.bytes_mut() as *mut [std::mem::MaybeUninit<u8>] as *mut [u8]);
             bincode::serialize_into(bytes, &item)?;
             dst.advance_mut(size);
         }

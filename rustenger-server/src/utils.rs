@@ -1,4 +1,11 @@
+use futures::stream::StreamExt;
+use rustenger_shared::{
+    codec::ServerCodec,
+    message::{ClientMessage, Command},
+};
 use std::collections::hash_map::{Entry, OccupiedEntry, VacantEntry};
+use tokio::net::TcpStream;
+use tokio_util::codec::Framed;
 
 /// initializes the logger as follows:
 ///     - user messenged -> 'messages'
@@ -73,87 +80,34 @@ where
     Ok(())
 }
 
-/// converts from Entry to Option
-pub trait EntryExt {
-    type OccupiedOutput;
-    type VacantOutput;
-
-    fn occupied(self) -> Option<Self::OccupiedOutput>;
-    fn vacant(self) -> Option<Self::VacantOutput>;
+/// read from framed stream
+pub async fn framed_read(
+    framed: &mut Framed<TcpStream, ServerCodec>,
+) -> Result<ClientMessage, bincode::Error> {
+    framed
+        .next()
+        .await
+        .unwrap_or(Ok(ClientMessage::Command(Command::Exit)))
 }
 
-impl<'a, K, V> EntryExt for Entry<'a, K, V> {
-    type OccupiedOutput = OccupiedEntry<'a, K, V>;
-    type VacantOutput = VacantEntry<'a, K, V>;
+/// transforms the `Entry<'a, K, V>` into a `Option<Occupiedentry<'a, K, V>` or into a `Option<VacantEntry<'a, K, V>`,
+pub trait EntryExt<'a, K, V> {
+    fn occupied(self) -> Option<OccupiedEntry<'a, K, V>>;
+    fn vacant(self) -> Option<VacantEntry<'a, K, V>>;
+}
 
-    fn occupied(self) -> Option<Self::OccupiedOutput> {
+impl<'a, K, V> EntryExt<'a, K, V> for Entry<'a, K, V> {
+    fn occupied(self) -> Option<OccupiedEntry<'a, K, V>> {
         match self {
             Entry::Occupied(e) => Some(e),
             Entry::Vacant(_) => None,
         }
     }
 
-    fn vacant(self) -> Option<Self::VacantOutput> {
+    fn vacant(self) -> Option<VacantEntry<'a, K, V>> {
         match self {
             Entry::Occupied(_) => None,
             Entry::Vacant(e) => Some(e),
         }
-    }
-}
-
-impl<'a, K, V> EntryExt for &'a Entry<'a, K, V> {
-    type OccupiedOutput = &'a OccupiedEntry<'a, K, V>;
-    type VacantOutput = &'a VacantEntry<'a, K, V>;
-
-    fn occupied(self) -> Option<Self::OccupiedOutput> {
-        match self {
-            Entry::Occupied(e) => Some(e),
-            Entry::Vacant(_) => None,
-        }
-    }
-
-    fn vacant(self) -> Option<Self::VacantOutput> {
-        match self {
-            Entry::Occupied(_) => None,
-            Entry::Vacant(e) => Some(e),
-        }
-    }
-}
-
-impl<'a, K, V> EntryExt for &'a mut Entry<'a, K, V> {
-    type OccupiedOutput = &'a mut OccupiedEntry<'a, K, V>;
-    type VacantOutput = &'a mut VacantEntry<'a, K, V>;
-
-    fn occupied(self) -> Option<Self::OccupiedOutput> {
-        match self {
-            Entry::Occupied(e) => Some(e),
-            Entry::Vacant(_) => None,
-        }
-    }
-
-    fn vacant(self) -> Option<Self::VacantOutput> {
-        match self {
-            Entry::Occupied(_) => None,
-            Entry::Vacant(e) => Some(e),
-        }
-    }
-}
-
-pub trait OptionExt {
-    type Value;
-
-    fn unwrap_ref(&self) -> &Self::Value;
-    fn unwrap_mut(&mut self) -> &mut Self::Value;
-}
-
-impl<T> OptionExt for Option<T> {
-    type Value = T;
-
-    fn unwrap_ref(&self) -> &T {
-        self.as_ref().unwrap()
-    }
-
-    fn unwrap_mut(&mut self) -> &mut T {
-        self.as_mut().unwrap()
     }
 }

@@ -1,8 +1,9 @@
-use futures::{SinkExt, StreamExt};
+use crate::utils::framed_read;
+use futures::SinkExt;
 use rustenger_shared::{
     codec::ServerCodec,
     message::{ClientMessage, Command, Response, ServerMessage, SignInError},
-    Account, Color, Password, Username,
+    Account, Password, Username,
 };
 use std::fmt;
 use tokio::net::TcpStream;
@@ -30,33 +31,26 @@ impl Client {
     async fn sign_in(
         framed: &mut Framed<TcpStream, ServerCodec>,
     ) -> Result<Option<Account>, bincode::Error> {
-        use futures::future::ready;
+        loop {
+            if let ClientMessage::Command(cmd) = framed_read(framed).await? {
+                use Command::*;
 
-        while let Some(cmd) = framed
-            .filter_map(|r| ready(r.map(ClientMessage::command).transpose()))
-            .next()
-            .await
-            .transpose()?
-        {
-            use Command::*;
+                let res = match cmd {
+                    LogIn(un, pw) => Self::log_in(un, pw),
+                    SignUp(un, pw) => Self::sing_up(un, pw),
+                    Exit => return Ok(None),
+                    _ => continue,
+                };
 
-            let res = match cmd {
-                LogIn(un, pw) => Self::log_in(un, pw),
-                SignUp(un, pw) => Self::sing_up(un, pw),
-                Exit => return Ok(None),
-                _ => continue,
-            };
+                let response = Response::SignInResult(res.clone().map(|_| ()));
+                framed.send(ServerMessage::Response(response)).await?;
 
-            let response = Response::SignInResult(res.clone().map(|_| ()));
-            framed.send(ServerMessage::Response(response)).await?;
-
-            return match res {
-                Err(_) => continue,
-                Ok(acc) => Ok(Some(acc)),
-            };
+                return match res {
+                    Err(_) => continue,
+                    Ok(acc) => Ok(Some(acc)),
+                };
+            }
         }
-
-        Ok(None)
     }
 
     // TODO
@@ -69,18 +63,13 @@ impl Client {
     // TODO
     /// if an account with the same name does not exist, creates it
     fn sing_up(username: Username, _password: Password) -> Result<Account, SignInError> {
-        let color = Color::White;
-        let acc = Account { username, color };
+        let acc = Account::new(username);
         Ok(acc)
     }
 
     /// reads a message from the user
-    pub async fn read(&mut self) -> Result<(Username, ClientMessage), bincode::Error> {
-        self.framed
-            .next()
-            .await
-            .unwrap_or(Ok(ClientMessage::Command(Command::Exit)))
-            .map(|r| (self.account.username, r))
+    pub async fn read(&mut self) -> Result<ClientMessage, bincode::Error> {
+        framed_read(&mut self.framed).await
     }
 
     /// sends a message to the user
@@ -90,18 +79,26 @@ impl Client {
 
     /// returns username
     pub fn username(&self) -> Username {
-        self.account.username
+        self.account.username()
     }
 
-    // TODO
     /// runs the client until the user selects a room
-    pub async fn run(self) -> Result<Option<Self>, ()> {
-        Ok(None)
+    pub async fn run(mut self) -> Result<(), bincode::Error> {
+        loop {
+            if let ClientMessage::Command(cmd) = self.read().await? {
+                match self.handle(cmd).await? {
+                    None => return Ok(()),
+                    Some(client) => {
+                        self = client;
+                    }
+                }
+            }
+        }
     }
 
     // TODO
     /// handles commands
-    pub async fn handle(self, cmd: Command) -> Result<Option<Self>, ()> {
+    pub async fn handle(self, cmd: Command) -> Result<Option<Self>, bincode::Error> {
         Ok(None)
     }
 }
