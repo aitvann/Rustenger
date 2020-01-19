@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::utils::EntryExt;
+use crate::utils::{EntryExt, ResultExt};
 use rustenger_shared::{message::UserMessage, RoomName, Username};
 use std::{collections::HashMap, sync::Arc};
 use thiserror::Error;
@@ -26,6 +26,8 @@ impl Server {
 
     /// create link to room with name 'name'
     pub async fn create_room(&self, name: RoomName) -> Result<(), Error> {
+        log::info!("create new room: {}", name);
+
         let (msg_tx, msg_rx) = mpsc::channel(64);
         let room = Room::new(name, msg_rx, self.clone());
 
@@ -41,6 +43,8 @@ impl Server {
 
     /// remove link to room with name 'name'
     pub async fn revome_link(self, name: RoomName) -> Result<(), Error> {
+        log::info!("remove link to room: {}", name);
+
         let mut lock = self.links.write().await;
         lock.entry(name)
             .occupied()
@@ -52,6 +56,8 @@ impl Server {
 
     /// inser user 'user' into room with name 'room_name'
     pub async fn insert_user(&self, client: Client, room_name: RoomName) -> Result<(), Error> {
+        log::info!("insert user {} to room {}", client.username(), room_name);
+
         let lock = self.links.read().await;
         let msg_tx = lock
             .get(&room_name)
@@ -98,6 +104,8 @@ impl Room {
         use futures::future::{self, FutureExt};
         use rustenger_shared::message::ClientMessage;
 
+        log::info!("run room: {}", self.name());
+
         loop {
             {
                 let recv = future::maybe_done(self.msg_rx.recv());
@@ -119,9 +127,13 @@ impl Room {
             let (name, res) = future::select_all(iter).await.0;
 
             match res {
-                Err(_e) => continue,
+                Err(e) => {
+                    log::error!("failed to recieve client message: {}", e);
+                    continue;
+                }
                 Ok(ClientMessage::UserMessage(msg)) => {
-                    if let Err(_e) = self.broadcast(msg, name).await {
+                    if let Err(e) = self.broadcast(msg, name).await {
+                        log::error!("failed to broadcast user message: {}", e);
                         continue;
                     }
                 }
@@ -130,7 +142,10 @@ impl Room {
                     let client = entry.get_mut().take().unwrap();
 
                     match client.handle(cmd).await {
-                        Err(_e) => continue,
+                        Err(e) => {
+                            log::error!("failed to handle command: {}", e);
+                            continue;
+                        }
                         Ok(None) => {
                             entry.remove();
                         }
@@ -166,6 +181,8 @@ impl Room {
 
 impl Drop for Room {
     fn drop(&mut self) {
+        log::debug!("drop the room: {}", self.name());
+
         let fut = self.server.clone().revome_link(self.name());
         tokio::spawn(fut);
     }

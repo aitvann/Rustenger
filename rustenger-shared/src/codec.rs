@@ -19,6 +19,8 @@ impl Encoder for ClientCodec {
 
     fn encode(&mut self, item: Self::Item, dst: &mut BytesMut) -> Result<(), Self::Error> {
         let size = bincode::serialized_size(&item)? as usize;
+        log::debug!("client encode messae size: {}", size);
+
         // reaserve for head + body
         dst.reserve(2 + size);
         dst.put_u16(size as u16);
@@ -55,6 +57,7 @@ impl Decoder for ClientCodec {
             }
             BigEndian::read_u16(src.as_ref()) as usize
         };
+        log::debug!("client docode message size: {}", size);
 
         // reserve bytes for current frame body and next frame head
         src.reserve(size + 2);
@@ -86,6 +89,8 @@ impl Encoder for ServerCodec {
 
     fn encode(&mut self, item: Self::Item, dst: &mut BytesMut) -> Result<(), Self::Error> {
         let size = bincode::serialized_size(&item)? as usize;
+        log::debug!("server encode message size: {}", size);
+
         // reaserve for head + body
         dst.reserve(2 + size);
         dst.put_u16(size as u16);
@@ -122,6 +127,7 @@ impl Decoder for ServerCodec {
             }
             BigEndian::read_u16(src.as_ref()) as usize
         };
+        log::debug!("server decode message size: {}", size);
 
         // reserve bytes for current frame body and next frame head
         src.reserve(size + 2);

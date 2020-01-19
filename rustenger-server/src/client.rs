@@ -39,14 +39,20 @@ impl Client {
                     LogIn(un, pw) => Self::log_in(un, pw),
                     SignUp(un, pw) => Self::sing_up(un, pw),
                     Exit => return Ok(None),
-                    _ => continue,
+                    cmd => {
+                        log::warn!("untreated command: {:?}", cmd);
+                        continue;
+                    }
                 };
 
                 let response = Response::SignInResult(res.clone().map(|_| ()));
                 framed.send(ServerMessage::Response(response)).await?;
 
                 return match res {
-                    Err(_) => continue,
+                    Err(e) => {
+                        log::warn!("faieled to sign in user: {}", e);
+                        continue;
+                    }
                     Ok(acc) => Ok(Some(acc)),
                 };
             }
@@ -55,7 +61,9 @@ impl Client {
 
     // TODO
     /// finds an account by name and returns it if the passwords match
-    fn log_in(_username: Username, _password: Password) -> Result<Account, SignInError> {
+    fn log_in(username: Username, _password: Password) -> Result<Account, SignInError> {
+        log::info!("attempt to log in: {}", username);
+
         let err = SignInError::InvalidUserNamePassword;
         Err(err)
     }
@@ -63,6 +71,8 @@ impl Client {
     // TODO
     /// if an account with the same name does not exist, creates it
     fn sing_up(username: Username, _password: Password) -> Result<Account, SignInError> {
+        log::info!("attempt to sing up: {}", username);
+
         let acc = Account::new(username);
         Ok(acc)
     }
@@ -84,6 +94,8 @@ impl Client {
 
     /// runs the client until the user selects a room
     pub async fn run(mut self) -> Result<(), bincode::Error> {
+        log::info!("run client: {}", self.username());
+
         loop {
             if let ClientMessage::Command(cmd) = self.read().await? {
                 match self.handle(cmd).await? {

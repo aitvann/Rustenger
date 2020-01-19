@@ -1,7 +1,11 @@
 #![feature(async_closure)]
-use tokio::{net::TcpListener, prelude::*};
+use crate::utils::ResultExt;
+use futures::stream::{self, StreamExt};
+use tokio::net::{TcpListener, TcpStream};
 
 mod client;
+use client::Client;
+
 mod room;
 mod utils;
 
@@ -10,9 +14,8 @@ const PATH_TO_MESENGES_LOG: &str = "messenges.log";
 const PATH_TO_GENERAL_LOG: &str = "general.log";
 
 #[tokio::main]
-async fn main() -> std::io::Result<()> {
-    use futures::stream::{self, StreamExt};
-
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // init logger
     let messenges = fern::log_file(PATH_TO_MESENGES_LOG)?;
     let general = fern::log_file(PATH_TO_GENERAL_LOG)?;
     utils::init_logger(messenges, general).expect("failed to initialize logger");
@@ -41,7 +44,7 @@ async fn main() -> std::io::Result<()> {
             .ok()
     });
     futures::pin_mut!(stream);
-    let listener = stream
+    let mut listener = stream
         .next()
         .await
         .expect("failed to select listener address");
@@ -51,5 +54,37 @@ async fn main() -> std::io::Result<()> {
         listener.local_addr().unwrap()
     );
 
+    let mut incoming = listener.incoming();
+    while let Some(res) = incoming.next().await {
+        if let Ok(stream) = res.inspect_err(|e| log::error!("failed to accept stream: {}", e)) {
+            tokio::spawn(process(stream));
+        }
+    }
+
     Ok(())
+}
+
+/// process the accepted stream
+async fn process(stream: TcpStream) {
+    if let Ok(addr) = stream
+        .peer_addr()
+        .inspect_err(|e| log::warn!("failed to add peer addr: {}", e))
+    {
+        log::info!("accept stream: {}", addr);
+    }
+
+    if let Ok(client) = Client::new(stream)
+        .await
+        .inspect_err(|e| log::error!("failed to create 'Client': {}", e))
+    {
+        log::info!("succefull create client");
+
+        // if the user has not exit
+        if let Some(client) = client {
+            let _ = client
+                .run()
+                .await
+                .inspect_err(|e| log::error!("error while run client: {}", e));
+        }
+    }
 }

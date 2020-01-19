@@ -84,10 +84,10 @@ where
 pub async fn framed_read(
     framed: &mut Framed<TcpStream, ServerCodec>,
 ) -> Result<ClientMessage, bincode::Error> {
-    framed
-        .next()
-        .await
-        .unwrap_or(Ok(ClientMessage::Command(Command::Exit)))
+    framed.next().await.unwrap_or_else(|| {
+        log::error!("failed to read from framed");
+        Ok(ClientMessage::Command(Command::Exit))
+    })
 }
 
 /// transforms the `Entry<'a, K, V>` into a `Option<Occupiedentry<'a, K, V>` or into a `Option<VacantEntry<'a, K, V>`,
@@ -109,5 +109,38 @@ impl<'a, K, V> EntryExt<'a, K, V> for Entry<'a, K, V> {
             Entry::Occupied(_) => None,
             Entry::Vacant(e) => Some(e),
         }
+    }
+}
+
+pub trait ResultExt<T, E> {
+    fn inspect<F>(self, f: F) -> Self
+    where
+        F: FnOnce(&T);
+    fn inspect_err<F>(self, f: F) -> Self
+    where
+        F: FnOnce(&E);
+}
+
+impl<T, E> ResultExt<T, E> for Result<T, E> {
+    fn inspect<F>(self, f: F) -> Self
+    where
+        F: FnOnce(&T),
+    {
+        if let Ok(ref o) = self {
+            (f)(o);
+        }
+
+        self
+    }
+
+    fn inspect_err<F>(self, f: F) -> Self
+    where
+        F: FnOnce(&E),
+    {
+        if let Err(ref e) = self {
+            (f)(e);
+        }
+
+        self
     }
 }
