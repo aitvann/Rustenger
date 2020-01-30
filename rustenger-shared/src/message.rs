@@ -1,4 +1,5 @@
-use super::{Account, Color, Password, RoomName, Username};
+use super::{Account, RoomName, Username};
+use crate::commands::*;
 use arrayvec::ArrayString;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -14,8 +15,6 @@ pub struct UserMessage {
 }
 
 /// message from client
-/// when the client sends Request, it must wait
-/// and ignore all messages until it receives a Response
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum ClientMessage {
     UserMessage(UserMessage),
@@ -41,14 +40,14 @@ impl ClientMessage {
 /// command to server
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum Command {
-    LogIn(Username, Password),
-    SignUp(Username, Password),
-    SelectRoom(RoomName),
-    RoomsList,
-    SelectColor(Color),
-    DeleteAccount,
-    LogOut,
-    Exit,
+    LogIn(LogIn),
+    SignUp(SignUp),
+    SelectRoom(SelectRoom),
+    RoomsList(RoomsList),
+    SelectColor(SelectColor),
+    DeleteAccount(DeleteAccount),
+    LogOut(LogOut),
+    Exit(Exit),
 }
 
 /// message form server

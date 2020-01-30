@@ -84,9 +84,11 @@ where
 pub async fn framed_read(
     framed: &mut Framed<TcpStream, ServerCodec>,
 ) -> Result<ClientMessage, bincode::Error> {
+    use rustenger_shared::commands;
+
     framed.next().await.unwrap_or_else(|| {
         log::error!("failed to read from framed");
-        Ok(ClientMessage::Command(Command::Exit))
+        Ok(ClientMessage::Command(Command::Exit(commands::Exit)))
     })
 }
 

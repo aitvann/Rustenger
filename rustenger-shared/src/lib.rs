@@ -2,6 +2,7 @@ use arrayvec::ArrayString;
 use serde::{Deserialize, Serialize};
 
 pub mod codec;
+pub mod commands;
 pub mod message;
 
 pub type Username = ArrayString<[u8; 32]>;

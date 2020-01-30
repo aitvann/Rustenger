@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::utils::{EntryExt, ResultExt};
+use crate::utils::EntryExt;
 use rustenger_shared::{message::UserMessage, RoomName, Username};
 use std::{collections::HashMap, sync::Arc};
 use thiserror::Error;

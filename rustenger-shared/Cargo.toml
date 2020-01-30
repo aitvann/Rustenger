@@ -14,3 +14,4 @@ chrono = { version = "0.4", features = ["serde"] }
 bytes = "0.5"
 thiserror = "1.0"
 log = { version = "0.4", features = ["release_max_level_info"] }
+enum_dispatch = "0.2"

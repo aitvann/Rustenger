@@ -3,7 +3,7 @@ use futures::SinkExt;
 use rustenger_shared::{
     codec::ServerCodec,
     message::{ClientMessage, Command, Response, ServerMessage, SignInError},
-    Account, Password, Username,
+    Account, Password, Username, commands,
 };
 use std::fmt;
 use tokio::net::TcpStream;
@@ -36,9 +36,9 @@ impl Client {
                 use Command::*;
 
                 let res = match cmd {
-                    LogIn(un, pw) => Self::log_in(un, pw),
-                    SignUp(un, pw) => Self::sing_up(un, pw),
-                    Exit => return Ok(None),
+                    LogIn(commands::LogIn(un, pw)) => Self::log_in(un, pw),
+                    SignUp(commands::SignUp(un, pw)) => Self::sing_up(un, pw),
+                    Exit(_) => return Ok(None),
                     cmd => {
                         log::warn!("untreated command: {:?}", cmd);
                         continue;
@@ -108,15 +108,77 @@ impl Client {
         }
     }
 
-    // TODO
     /// handles commands
     pub async fn handle(self, cmd: Command) -> Result<Option<Self>, bincode::Error> {
-        Ok(None)
+        use Command::*;
+
+        match cmd {
+            LogIn(x) => x.handle(self),
+            SignUp(x) => x.handle(self),
+            SelectRoom(x) => x.handle(self),
+            RoomsList(x) => x.handle(self),
+            SelectColor(x) => x.handle(self),
+            DeleteAccount(x) => x.handle(self),
+            LogOut(x) => x.handle(self),
+            Exit(x) => x.handle(self),
+        }
     }
 }
 
 impl fmt::Debug for Client {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Client {{ framed: ..., account: {:?} }}", self.account)
+        write!(f, "Client {{ framed: .., account: {:?} }}", self.account)
+    }
+}
+
+trait Handle {
+    fn handle(self, client: Client) -> Result<Option<Client>, bincode::Error>;
+}
+
+impl Handle for commands::LogIn {
+    fn handle(self, client: Client) -> Result<Option<Client>, bincode::Error> {
+        Ok(Some(client))
+    }
+}
+
+impl Handle for commands::SignUp {
+    fn handle(self, client: Client) -> Result<Option<Client>, bincode::Error> {
+        Ok(Some(client))
+    }
+}
+
+impl Handle for commands::SelectRoom {
+    fn handle(self, client: Client) -> Result<Option<Client>, bincode::Error> {
+        Ok(Some(client))
+    }
+}
+
+impl Handle for commands::RoomsList {
+    fn handle(self, client: Client) -> Result<Option<Client>, bincode::Error> {
+        Ok(Some(client))
+    }
+}
+
+impl Handle for commands::SelectColor {
+    fn handle(self, client: Client) -> Result<Option<Client>, bincode::Error> {
+        Ok(Some(client))
+    }
+}
+
+impl Handle for commands::DeleteAccount {
+    fn handle(self, client: Client) -> Result<Option<Client>, bincode::Error> {
+        Ok(Some(client))
+    }
+}
+
+impl Handle for commands::LogOut {
+    fn handle(self, client: Client) -> Result<Option<Client>, bincode::Error> {
+        Ok(Some(client))
+    }
+}
+
+impl Handle for commands::Exit {
+    fn handle(self, client: Client) -> Result<Option<Client>, bincode::Error> {
+        Ok(Some(client))
     }
 }
