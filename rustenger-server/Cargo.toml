@@ -14,18 +14,16 @@ rustenger-shared = { version = "0", path = "../rustenger-shared" }
 futures = "0.3"
 tokio = { version = "0.2", features = ["tcp", "stream", "net", "macros", "io-util", "sync"] }
 tokio-util = { version = "0.2", features = ["codec"] }
-
 tokio-postgres = "0.5"
-# diesel = "1.4.3"
 
 log = { version = "0.4", features = ["release_max_level_info"] }
 fern = { version = "0.5", features = ["colored"] }
 
-pin-project = "0.4"
-# pin-project-lite = "0.1"
+serde = { version = "1.0", features = ["derive"] }
+bincode = "1.2"
 
 thiserror = "1.0"
 chrono = "0.4"
 clap = "2.33"
-serde = { version = "1.0", features = ["derive"] }
-bincode = "1.2"
+pin-project = "0.4"
+async-trait = "0.1"

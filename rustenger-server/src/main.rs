@@ -7,6 +7,8 @@ mod client;
 use client::Client;
 
 mod room;
+use room::Server;
+
 mod utils;
 
 const DEFAULT_ADDR: &str = "0.0.0.0:4732";
@@ -54,10 +56,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         listener.local_addr().unwrap()
     );
 
+    let server = Server::new();
+
     let mut incoming = listener.incoming();
     while let Some(res) = incoming.next().await {
         if let Ok(stream) = res.inspect_err(|e| log::error!("failed to accept stream: {}", e)) {
-            tokio::spawn(process(stream));
+            tokio::spawn(process(stream, server.clone()));
         }
     }
 
@@ -65,26 +69,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// process the accepted stream
-async fn process(stream: TcpStream) {
+async fn process(stream: TcpStream, server: Server) {
     if let Ok(addr) = stream
         .peer_addr()
-        .inspect_err(|e| log::warn!("failed to add peer addr: {}", e))
+        .inspect_err(|e| log::warn!("failed to get peer addr: {}", e))
     {
         log::info!("accept stream: {}", addr);
     }
 
-    if let Ok(client) = Client::new(stream)
+    if let Ok(client) = Client::new(stream, server)
         .await
         .inspect_err(|e| log::error!("failed to create 'Client': {}", e))
     {
-        log::info!("succefull create client");
+        log::info!("succefull create 'Client'");
 
         // if the user has not exit
         if let Some(client) = client {
             let _ = client
                 .run()
                 .await
-                .inspect_err(|e| log::error!("error while run client: {}", e));
+                .inspect_err(|e| log::error!("error while run 'Client': {}", e));
         }
     }
 }

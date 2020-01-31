@@ -13,7 +13,7 @@ pub type RoomMsgRx = mpsc::Receiver<Client>;
 // used Mutex for ServerRoomMessage because it is always used for writing
 /// A mediator between Rooms, contains links to each room and is accessible from each room
 #[derive(Clone)]
-struct Server {
+pub struct Server {
     links: Arc<RwLock<HashMap<RoomName, Mutex<RoomMsgTx>>>>,
 }
 
@@ -42,6 +42,7 @@ impl Server {
     }
 
     /// remove link to room with name 'name'
+    /// 'self' insted of '&self" due to this method used in Drop
     pub async fn revome_link(self, name: RoomName) -> Result<(), Error> {
         log::info!("remove link to room: {}", name);
 
@@ -66,10 +67,15 @@ impl Server {
         let mut msg_tx_lock = msg_tx.lock().await;
         msg_tx_lock.send(client).await.map_err(Error::Send)
     }
+
+    /// build 'Vec' of names of all rooms in the server
+    pub async fn rooms(&self) -> Vec<RoomName> {
+        self.links.read().await.keys().cloned().collect()
+    }
 }
 
 #[derive(Error, Debug)]
-enum Error {
+pub enum Error {
     #[error("room '{0}' already exist")]
     RoomAlreadyExist(RoomName),
     #[error("room '{0}' does not exist")]

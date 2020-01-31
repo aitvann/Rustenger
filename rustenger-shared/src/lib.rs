@@ -16,21 +16,30 @@ pub struct Account {
 }
 
 impl Account {
+    /// create new 'Account' with white color
     pub fn new(username: Username) -> Self {
         let color = Color::White;
         Self { username, color }
     }
 
+    /// create new 'Account' with color
     pub fn with_color(username: Username, color: Color) -> Self {
         Self { username, color }
     }
 
+    /// return username
     pub fn username(&self) -> Username {
         self.username
     }
 
+    /// return current color
     pub fn color(&self) -> Color {
         self.color
+    }
+
+    /// sets new color
+    pub fn set_color(&mut self, color: Color) {
+        self.color = color;
     }
 }
 

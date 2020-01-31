@@ -46,7 +46,6 @@ pub enum Command {
     RoomsList(RoomsList),
     SelectColor(SelectColor),
     DeleteAccount(DeleteAccount),
-    LogOut(LogOut),
     Exit(Exit),
 }
 

@@ -20,7 +20,4 @@ pub struct SelectColor(pub Color);
 pub struct DeleteAccount;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct LogOut;
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Exit;

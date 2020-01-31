@@ -1,28 +1,35 @@
+use crate::room::{self, Server};
 use crate::utils::framed_read;
+use async_trait::async_trait;
 use futures::SinkExt;
 use rustenger_shared::{
     codec::ServerCodec,
+    commands,
     message::{ClientMessage, Command, Response, ServerMessage, SignInError},
-    Account, Password, Username, commands,
+    Color, Account, Password, Username,
 };
 use std::fmt;
+use thiserror::Error;
 use tokio::net::TcpStream;
 use tokio_util::codec::Framed;
 
 pub struct Client {
     framed: Framed<TcpStream, ServerCodec>,
     account: Account,
+    server: Server,
 }
 
 impl Client {
     /// creates new client
-    pub async fn new(stream: TcpStream) -> Result<Option<Self>, bincode::Error> {
+    pub async fn new(stream: TcpStream, server: Server) -> Result<Option<Self>, bincode::Error> {
         let codec = ServerCodec::new();
         let mut framed = Framed::new(stream, codec);
 
-        let client = Self::sign_in(&mut framed)
-            .await?
-            .map(|account| Self { framed, account });
+        let client = Self::sign_in(&mut framed).await?.map(|account| Self {
+            framed,
+            account,
+            server,
+        });
 
         Ok(client)
     }
@@ -92,8 +99,13 @@ impl Client {
         self.account.username()
     }
 
+    /// sets new color for its account
+    pub fn set_color(&mut self, color: Color) {
+        self.account.set_color(color)
+    }
+
     /// runs the client until the user selects a room
-    pub async fn run(mut self) -> Result<(), bincode::Error> {
+    pub async fn run(mut self) -> Result<(), Error> {
         log::info!("run client: {}", self.username());
 
         loop {
@@ -108,19 +120,22 @@ impl Client {
         }
     }
 
-    /// handles commands
-    pub async fn handle(self, cmd: Command) -> Result<Option<Self>, bincode::Error> {
+    /// handle commands
+    pub async fn handle(self, cmd: Command) -> Result<Option<Self>, Error> {
         use Command::*;
 
         match cmd {
-            LogIn(x) => x.handle(self),
-            SignUp(x) => x.handle(self),
-            SelectRoom(x) => x.handle(self),
-            RoomsList(x) => x.handle(self),
-            SelectColor(x) => x.handle(self),
-            DeleteAccount(x) => x.handle(self),
-            LogOut(x) => x.handle(self),
-            Exit(x) => x.handle(self),
+            // LogIn(x) => x.handle(self),
+            // SignUp(x) => x.handle(self),
+            SelectRoom(x) => x.handle(self).await,
+            RoomsList(x) => x.handle(self).await,
+            SelectColor(x) => x.handle(self).await,
+            DeleteAccount(x) => x.handle(self).await,
+            Exit(x) => x.handle(self).await,
+            cmd => {
+                log::warn!("unexpected command: {:?}", cmd);
+                Ok(Some(self))
+            }
         }
     }
 }
@@ -131,54 +146,68 @@ impl fmt::Debug for Client {
     }
 }
 
+/// trait for processing client commands
+#[async_trait]
 trait Handle {
-    fn handle(self, client: Client) -> Result<Option<Client>, bincode::Error>;
+    async fn handle(self, client: Client) -> Result<Option<Client>, Error>;
 }
 
-impl Handle for commands::LogIn {
-    fn handle(self, client: Client) -> Result<Option<Client>, bincode::Error> {
-        Ok(Some(client))
-    }
-}
-
-impl Handle for commands::SignUp {
-    fn handle(self, client: Client) -> Result<Option<Client>, bincode::Error> {
-        Ok(Some(client))
-    }
-}
-
+#[async_trait]
 impl Handle for commands::SelectRoom {
-    fn handle(self, client: Client) -> Result<Option<Client>, bincode::Error> {
-        Ok(Some(client))
+    async fn handle(self, client: Client) -> Result<Option<Client>, Error> {
+        client
+            .server
+            .clone()
+            .insert_user(client, self.0)
+            .await
+            .map_err(Error::Server)
+            .map(|_| None)
     }
 }
 
+#[async_trait]
 impl Handle for commands::RoomsList {
-    fn handle(self, client: Client) -> Result<Option<Client>, bincode::Error> {
-        Ok(Some(client))
+    async fn handle(self, mut client: Client) -> Result<Option<Client>, Error> {
+        let rooms = client.server.rooms().await;
+        let response = Response::RoomsList(rooms);
+        let serv_message = ServerMessage::Response(response);
+
+        client
+            .write(serv_message)
+            .await
+            .map_err(Error::Bincode)
+            .map(|_| Some(client))
     }
 }
 
+#[async_trait]
 impl Handle for commands::SelectColor {
-    fn handle(self, client: Client) -> Result<Option<Client>, bincode::Error> {
+    async fn handle(self, mut client: Client) -> Result<Option<Client>, Error> {
+        client.set_color(self.0);
         Ok(Some(client))
     }
 }
 
+#[async_trait]
+// TODO
 impl Handle for commands::DeleteAccount {
-    fn handle(self, client: Client) -> Result<Option<Client>, bincode::Error> {
+    async fn handle(self, client: Client) -> Result<Option<Client>, Error> {
         Ok(Some(client))
     }
 }
 
-impl Handle for commands::LogOut {
-    fn handle(self, client: Client) -> Result<Option<Client>, bincode::Error> {
-        Ok(Some(client))
-    }
-}
-
+#[async_trait]
 impl Handle for commands::Exit {
-    fn handle(self, client: Client) -> Result<Option<Client>, bincode::Error> {
-        Ok(Some(client))
+    async fn handle(self, _client: Client) -> Result<Option<Client>, Error> {
+        log::info!("user exited");
+        Ok(None)
     }
+}
+
+#[derive(Error, Debug)]
+pub enum Error {
+    #[error("bincode error: {0}")]
+    Bincode(#[from] bincode::Error),
+    #[error("server error: {0}")]
+    Server(#[from] room::Error),
 }
