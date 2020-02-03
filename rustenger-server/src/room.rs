@@ -8,6 +8,20 @@ use tokio::sync::{mpsc, Mutex, RwLock};
 pub type RoomMsgTx = mpsc::Sender<Client>;
 pub type RoomMsgRx = mpsc::Receiver<Client>;
 
+pub type Result<T> = std::result::Result<T, Error>;
+
+#[derive(Error, Debug)]
+pub enum Error {
+    #[error("room '{0}' already exist")]
+    RoomAlreadyExist(RoomName),
+    #[error("room '{0}' does not exist")]
+    RoomDoesNotExits(RoomName),
+    #[error("send error: {0}")]
+    Send(#[from] mpsc::error::SendError<Client>),
+    #[error("bincode error: {0}")]
+    Bincode(#[from] bincode::Error),
+}
+
 // for rooms it is used RwLock, because it is often used for reading
 // - access to ServerRoomMessageTx and rarely for writing - adding a new Room;
 // used Mutex for ServerRoomMessage because it is always used for writing
@@ -25,7 +39,7 @@ impl Server {
     }
 
     /// create link to room with name 'name'
-    pub async fn create_room(&self, name: RoomName) -> Result<(), Error> {
+    pub async fn create_room(&self, name: RoomName) -> Result<()> {
         log::info!("create new room: {}", name);
 
         let (msg_tx, msg_rx) = mpsc::channel(64);
@@ -43,7 +57,7 @@ impl Server {
 
     /// remove link to room with name 'name'
     /// 'self' insted of '&self" due to this method used in Drop
-    pub async fn revome_link(self, name: RoomName) -> Result<(), Error> {
+    pub async fn revome_link(self, name: RoomName) -> Result<()> {
         log::info!("remove link to room: {}", name);
 
         let mut lock = self.links.write().await;
@@ -56,7 +70,7 @@ impl Server {
     }
 
     /// inser user 'user' into room with name 'room_name'
-    pub async fn insert_user(&self, client: Client, room_name: RoomName) -> Result<(), Error> {
+    pub async fn insert_user(&self, client: Client, room_name: RoomName) -> Result<()> {
         log::info!("insert user {} to room {}", client.username(), room_name);
 
         let lock = self.links.read().await;
@@ -72,16 +86,6 @@ impl Server {
     pub async fn rooms(&self) -> Vec<RoomName> {
         self.links.read().await.keys().cloned().collect()
     }
-}
-
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("room '{0}' already exist")]
-    RoomAlreadyExist(RoomName),
-    #[error("room '{0}' does not exist")]
-    RoomDoesNotExits(RoomName),
-    #[error("send error: {0}")]
-    Send(#[from] mpsc::error::SendError<Client>),
 }
 
 pub type Clients = HashMap<RoomName, Option<Client>>;
@@ -165,7 +169,7 @@ impl Room {
     }
 
     /// sends messages to all clients except 'skip'
-    async fn broadcast(&mut self, msg: UserMessage, skip: Username) -> Result<(), bincode::Error> {
+    async fn broadcast(&mut self, msg: UserMessage, skip: Username) -> Result<()> {
         use rustenger_shared::message::ServerMessage;
 
         for client in self
