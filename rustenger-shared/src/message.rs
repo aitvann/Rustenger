@@ -1,5 +1,4 @@
-use super::{Account, RoomName, Username};
-use crate::commands::*;
+use super::{Account, Color, Password, RoomName, Username};
 use arrayvec::ArrayString;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -40,13 +39,13 @@ impl ClientMessage {
 /// command to server
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum Command {
-    LogIn(LogIn),
-    SignUp(SignUp),
-    SelectRoom(SelectRoom),
-    RoomsList(RoomsList),
-    SelectColor(SelectColor),
-    DeleteAccount(DeleteAccount),
-    Exit(Exit),
+    LogIn(Username, Password),
+    SignUp(Username, Password),
+    SelectRoom(RoomName),
+    RoomsList,
+    SelectColor(Color),
+    DeleteAccount,
+    Exit,
 }
 
 /// message form server

@@ -1,12 +1,10 @@
 use crate::room::{Error, Result, Server};
 use crate::utils::framed_read;
-use async_trait::async_trait;
 use futures::SinkExt;
 use rustenger_shared::{
     codec::ServerCodec,
-    commands,
     message::{ClientMessage, Command, Response, ServerMessage, SignInError},
-    Account, Color, Password, Username,
+    Account, Color, Password, RoomName, Username,
 };
 use std::{fmt, result};
 use tokio::net::TcpStream;
@@ -40,9 +38,9 @@ impl Client {
                 use Command::*;
 
                 let res = match cmd {
-                    LogIn(commands::LogIn(un, pw)) => Self::log_in(un, pw),
-                    SignUp(commands::SignUp(un, pw)) => Self::sing_up(un, pw),
-                    Exit(_) => return Ok(None),
+                    LogIn(un, pw) => Self::log_in(un, pw),
+                    SignUp(un, pw) => Self::sing_up(un, pw),
+                    Exit => return Ok(None),
                     cmd => {
                         log::warn!("untreated command: {:?}", cmd);
                         continue;
@@ -122,76 +120,43 @@ impl Client {
         use Command::*;
 
         match cmd {
-            // LogIn(x) => x.handle(self),
-            // SignUp(x) => x.handle(self),
-            SelectRoom(x) => x.handle(self).await,
-            RoomsList(x) => x.handle(self).await,
-            SelectColor(x) => x.handle(self).await,
-            DeleteAccount(x) => x.handle(self).await,
-            Exit(x) => x.handle(self).await,
+            SelectRoom(rn) => self.select_room(rn).await,
+            RoomsList => self.room_list().await,
+            SelectColor(c) => self.select_color(c),
+            // DeleteAccount => (), TODO
+            Exit => self.exit(),
             cmd => {
                 log::warn!("unexpected command: {:?}", cmd);
                 Ok(Some(self))
             }
         }
     }
+
+    async fn select_room(self, room_name: RoomName) -> Result<Option<Self>> {
+        self.server.clone().insert_user(self, room_name).await.map(|_| None)
+    }
+
+    async fn room_list(mut self) -> Result<Option<Self>> {
+        let rooms = self.server.rooms().await;
+        let response = Response::RoomsList(rooms);
+        let serv_message = ServerMessage::Response(response);
+
+        self.write(serv_message).await.map(|_| Some(self))
+    }
+
+    fn select_color(mut self, color: Color) -> Result<Option<Self>> {
+        self.set_color(color);
+        Ok(Some(self))
+    }
+
+    fn exit(self) -> Result<Option<Self>> {
+        log::info!("user exited");
+        Ok(None)
+    }
 }
 
 impl fmt::Debug for Client {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Client {{ framed: .., account: {:?} }}", self.account)
-    }
-}
-
-/// trait for processing client commands
-#[async_trait]
-trait Handle {
-    async fn handle(self, client: Client) -> Result<Option<Client>>;
-}
-
-#[async_trait]
-impl Handle for commands::SelectRoom {
-    async fn handle(self, client: Client) -> Result<Option<Client>> {
-        client
-            .server
-            .clone()
-            .insert_user(client, self.0)
-            .await
-            .map(|_| None)
-    }
-}
-
-#[async_trait]
-impl Handle for commands::RoomsList {
-    async fn handle(self, mut client: Client) -> Result<Option<Client>> {
-        let rooms = client.server.rooms().await;
-        let response = Response::RoomsList(rooms);
-        let serv_message = ServerMessage::Response(response);
-
-        client.write(serv_message).await.map(|_| Some(client))
-    }
-}
-
-#[async_trait]
-impl Handle for commands::SelectColor {
-    async fn handle(self, mut client: Client) -> Result<Option<Client>> {
-        client.set_color(self.0);
-        Ok(Some(client))
-    }
-}
-
-#[async_trait]
-// TODO
-impl Handle for commands::DeleteAccount {
-    async fn handle(self, client: Client) -> Result<Option<Client>> {
-        Ok(Some(client))
-    }
-}
-
-#[async_trait]
-impl Handle for commands::Exit {
-    async fn handle(self, _client: Client) -> Result<Option<Client>> {
-        log::info!("user exited");
-        Ok(None)
     }
 }
