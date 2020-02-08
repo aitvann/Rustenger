@@ -120,7 +120,9 @@ impl Client {
         use Command::*;
 
         match cmd {
+            CreateRoom(rn) => self.create_room(rn).await,
             SelectRoom(rn) => self.select_room(rn).await,
+            ExitRoom => self.exit_room().await,
             RoomsList => self.room_list().await,
             SelectColor(c) => self.select_color(c),
             // DeleteAccount => (), TODO
@@ -132,8 +134,28 @@ impl Client {
         }
     }
 
+    async fn create_room(self, room_name: RoomName) -> Result<Option<Self>> {
+        self.server
+            .clone()
+            .create_room(room_name)
+            .await
+            .map(|_| Some(self))
+    }
+
     async fn select_room(self, room_name: RoomName) -> Result<Option<Self>> {
-        self.server.clone().insert_user(self, room_name).await.map(|_| None)
+        self.server
+            .clone()
+            .insert_user(self, room_name)
+            .await
+            .map(|_| None)
+    }
+
+    // async fn exit_room(self) -> Result<Option<Self>> {
+    fn exit_room(self) -> impl std::future::Future<Output = Result<Option<Self>>> + Send {
+        async move {
+            tokio::spawn(self.run());
+            Ok(None)
+        }
     }
 
     async fn room_list(mut self) -> Result<Option<Self>> {

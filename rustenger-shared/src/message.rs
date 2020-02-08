@@ -41,7 +41,9 @@ impl ClientMessage {
 pub enum Command {
     LogIn(Username, Password),
     SignUp(Username, Password),
+    CreateRoom(RoomName),
     SelectRoom(RoomName),
+    ExitRoom,
     RoomsList,
     SelectColor(Color),
     DeleteAccount,

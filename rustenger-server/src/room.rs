@@ -1,7 +1,7 @@
 use crate::client::Client;
 use crate::utils::EntryExt;
 use rustenger_shared::{message::UserMessage, RoomName, Username};
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, future::Future, sync::Arc};
 use thiserror::Error;
 use tokio::sync::{mpsc, Mutex, RwLock};
 
@@ -39,25 +39,27 @@ impl Server {
     }
 
     /// create link to room with name 'name'
-    pub async fn create_room(&self, name: RoomName) -> Result<()> {
-        log::info!("create new room: {}", name);
+    // pub async fn create_room(self, name: RoomName) -> Result<()> {
+    pub fn create_room(self, name: RoomName) -> impl Future<Output = Result<()>> + Send {
+        async move {
+            log::info!("create new room: {}", name);
 
-        let (msg_tx, msg_rx) = mpsc::channel(64);
-        let room = Room::new(name, msg_rx, self.clone());
+            let (msg_tx, msg_rx) = mpsc::channel(64);
+            let mut lock = self.links.write().await;
+            lock.entry(name)
+                .vacant()
+                .ok_or(Error::RoomAlreadyExist(name))?
+                .insert(Mutex::new(msg_tx));
 
-        let mut lock = self.links.write().await;
-        lock.entry(name)
-            .vacant()
-            .ok_or(Error::RoomAlreadyExist(name))?
-            .insert(Mutex::new(msg_tx));
-
-        tokio::spawn(room.run());
-        Ok(())
+            let room = Room::new(name, msg_rx, self.clone());
+            tokio::spawn(room.run());
+            Ok(())
+        }
     }
 
     /// remove link to room with name 'name'
     /// 'self' insted of '&self" due to this method used in Drop
-    pub async fn revome_link(self, name: RoomName) -> Result<()> {
+    pub async fn revome_room(self, name: RoomName) -> Result<()> {
         log::info!("remove link to room: {}", name);
 
         let mut lock = self.links.write().await;
@@ -193,7 +195,7 @@ impl Drop for Room {
     fn drop(&mut self) {
         log::debug!("drop the room: {}", self.name());
 
-        let fut = self.server.clone().revome_link(self.name());
+        let fut = self.server.clone().revome_room(self.name());
         tokio::spawn(fut);
     }
 }
