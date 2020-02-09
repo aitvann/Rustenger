@@ -1,6 +1,10 @@
 #![feature(async_closure)]
 use crate::utils::ResultExt;
-use futures::stream::{self, StreamExt};
+use futures::{
+    future,
+    stream::{self, StreamExt},
+};
+use std::net::{Ipv4Addr, SocketAddr};
 use tokio::net::{TcpListener, TcpStream};
 
 mod client;
@@ -11,7 +15,8 @@ use room::Server;
 
 mod utils;
 
-const DEFAULT_ADDR: &str = "0.0.0.0:4732";
+const DEFAULT_ADDR: Ipv4Addr = Ipv4Addr::UNSPECIFIED;
+const DEFAULT_PORT: u16 = 4732;
 const PATH_TO_MESENGES_LOG: &str = "messenges.log";
 const PATH_TO_GENERAL_LOG: &str = "general.log";
 
@@ -32,19 +37,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .short("a")
                 .multiple(true)
                 .takes_value(true)
-                .help("address of server")
-                .default_value(DEFAULT_ADDR),
+                .help("address of server"),
         )
         .get_matches();
 
     // selects the first available address from the arguments
     let addrs = matches.values_of("addresses").unwrap();
-    let stream = stream::iter(addrs).filter_map(async move |a| {
-        TcpListener::bind(a)
-            .await
-            .map_err(|e| log::warn!("failed to bind to address: {}; error: {}", a, e))
-            .ok()
-    });
+    let stream = stream::iter(addrs)
+        .filter_map(async move |a| a.parse().ok())
+        .chain(stream::once(future::ready(
+            (DEFAULT_ADDR, DEFAULT_PORT).into(),
+        )))
+        .filter_map(async move |a: SocketAddr| {
+            TcpListener::bind(a)
+                .await
+                .inspect_err(|e| log::warn!("failed to bind to address: {}; error: {}", a, e))
+                .ok()
+        });
     futures::pin_mut!(stream);
     let mut listener = stream
         .next()
