@@ -42,8 +42,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .get_matches();
 
     // selects the first available address from the arguments
-    let addrs = matches.values_of("addresses").unwrap();
-    let stream = stream::iter(addrs)
+    let mut addrs = matches.values_of("addresses");
+    let iter = addrs.iter_mut().flatten();
+    let stream = stream::iter(iter)
         .filter_map(async move |a| a.parse().ok())
         .chain(stream::once(future::ready(
             (DEFAULT_ADDR, DEFAULT_PORT).into(),
@@ -90,14 +91,15 @@ async fn process(stream: TcpStream, server: Server) {
         .await
         .inspect_err(|e| log::error!("failed to create 'Client': {}", e))
     {
-        log::info!("succefull create 'Client'");
-
         // if the user has not exit
         if let Some(client) = client {
-            let _ = client
+            log::info!("succefull create 'Client'");
+
+            client
                 .run()
                 .await
-                .inspect_err(|e| log::error!("error while run 'Client': {}", e));
+                .inspect_err(|e| log::error!("error while run 'Client': {}", e))
+                .ok();
         }
     }
 }
