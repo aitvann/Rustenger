@@ -5,3 +5,10 @@ authors = ["Aitzhanov Ivan <aitvann@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+rustenger-shared = { version = "0", path = "../rustenger-shared" }
+clap = "2.33"
+tokio-util = { version = "0.2", features = ["codec"] }
+bytes = "0.5"
+thiserror = "1.0"
+chrono = "0.4"
+arrayvec = { version = "0.5", features = ["serde"] }
