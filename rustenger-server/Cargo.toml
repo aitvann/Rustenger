@@ -14,7 +14,7 @@ rustenger-shared = { version = "0", path = "../rustenger-shared" }
 futures = "0.3"
 tokio = { version = "0.2", features = ["tcp", "stream", "net", "macros", "io-util", "sync"] }
 tokio-util = { version = "0.2", features = ["codec"] }
-tokio-postgres = "0.5"
+# tokio-postgres = "0.5"
 
 log = { version = "0.4", features = ["release_max_level_info"] }
 fern = { version = "0.5", features = ["colored"] }

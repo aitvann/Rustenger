@@ -2,9 +2,9 @@ use super::Fuse;
 use bytes::BytesMut;
 use std::{
     fmt,
-    io::{self, Read, Write},
+    io::{self, Read},
 };
-use tokio_util::codec::{Decoder, Encoder};
+use tokio_util::codec::Decoder;
 
 const INITIAL_CAPACITY: usize = 8 * 1024;
 

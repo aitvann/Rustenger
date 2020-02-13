@@ -139,14 +139,10 @@ impl Room {
             let (name, res) = future::select_all(iter).await.0;
 
             match res {
-                Err(e) => {
-                    log::error!("failed to recieve client message: {}", e);
-                    continue;
-                }
+                Err(e) => log::error!("failed to recieve client message: {}", e),
                 Ok(ClientMessage::UserMessage(msg)) => {
                     if let Err(e) = self.broadcast(msg, name).await {
                         log::error!("failed to broadcast user message: {}", e);
-                        continue;
                     }
                 }
                 Ok(ClientMessage::Command(cmd)) => {
@@ -154,10 +150,7 @@ impl Room {
                     let client = entry.get_mut().take().unwrap();
 
                     match client.handle(cmd).await {
-                        Err(e) => {
-                            log::error!("failed to handle command: {}", e);
-                            continue;
-                        }
+                        Err(e) => log::error!("failed to handle command: {}", e),
                         Ok(None) => {
                             entry.remove();
                         }

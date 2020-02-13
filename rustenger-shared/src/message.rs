@@ -8,9 +8,9 @@ pub type MessageText = ArrayString<[u8; 1024]>;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct UserMessage {
-    text: MessageText,
-    addresser_name: Username,
-    utc: DateTime<Utc>,
+    pub text: MessageText,
+    pub addresser_name: Username,
+    pub utc: DateTime<Utc>,
 }
 
 /// message from client
