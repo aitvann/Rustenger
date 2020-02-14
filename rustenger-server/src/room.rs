@@ -42,7 +42,7 @@ impl Server {
     // pub async fn create_room(self, name: RoomName) -> Result<()> {
     pub fn create_room(self, name: RoomName) -> impl Future<Output = Result<()>> + Send {
         async move {
-            log::info!("create new room: {}", name);
+            log::info!("attempt to create new room '{}'", name);
 
             let (msg_tx, msg_rx) = mpsc::channel(64);
             let mut lock = self.links.write().await;
@@ -60,7 +60,7 @@ impl Server {
     /// remove link to room with name 'name'
     /// 'self' insted of '&self" due to this method used in Drop
     pub async fn revome_room(self, name: RoomName) -> Result<()> {
-        log::info!("remove link to room: {}", name);
+        log::info!("attempt to remove link to room '{}'", name);
 
         let mut lock = self.links.write().await;
         lock.entry(name)
@@ -73,7 +73,7 @@ impl Server {
 
     /// inser user 'user' into room with name 'room_name'
     pub async fn insert_user(&self, client: Client, room_name: RoomName) -> Result<()> {
-        log::info!("insert user {} to room {}", client.username(), room_name);
+        log::info!("attempt to insert user '{}' to room '{}'", client.username(), room_name);
 
         let lock = self.links.read().await;
         let msg_tx = lock
@@ -124,8 +124,16 @@ impl Room {
                 futures::pin_mut!(recv);
                 if let Some(client) = recv.as_mut().take_output() {
                     let client = client.unwrap();
-                    self.clients.insert(client.username(), Some(client));
+                    let username = client.username();
+                    
+                    self.clients.insert(username, Some(client));
+                    log::info!("accepted user '{}' to room '{}'", username, self.name);
                 }
+            }
+
+            if self.clients.is_empty() {
+                tokio::task::yield_now().await;
+                continue;
             }
 
             let iter = self.clients.iter_mut().map(|(name, client)| {

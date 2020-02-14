@@ -1,17 +1,9 @@
 use super::{Account, Color, Password, RoomName, Username};
 use arrayvec::ArrayString;
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-pub type MessageText = ArrayString<[u8; 1024]>;
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct UserMessage {
-    pub text: MessageText,
-    pub addresser_name: Username,
-    pub utc: DateTime<Utc>,
-}
+pub type UserMessage = ArrayString<[u8; 1024]>;
 
 /// message from client
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
