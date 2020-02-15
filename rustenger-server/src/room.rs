@@ -1,6 +1,6 @@
 use crate::client::Client;
 use crate::utils::EntryExt;
-use rustenger_shared::{message::UserMessage, RoomName, Username};
+use rustenger_shared::{account::Username, message::UserMessage, RoomName};
 use std::{collections::HashMap, future::Future, sync::Arc};
 use thiserror::Error;
 use tokio::sync::{mpsc, Mutex, RwLock};
@@ -73,7 +73,11 @@ impl Server {
 
     /// inser user 'user' into room with name 'room_name'
     pub async fn insert_user(&self, client: Client, room_name: RoomName) -> Result<()> {
-        log::info!("attempt to insert user '{}' to room '{}'", client.username(), room_name);
+        log::info!(
+            "attempt to insert user '{}' to room '{}'",
+            client.username(),
+            room_name
+        );
 
         let lock = self.links.read().await;
         let msg_tx = lock
@@ -111,6 +115,8 @@ impl Room {
         }
     }
 
+    // TODO: make more usefull doc
+    // TODO: separate this function to more functions
     /// runs the room
     pub async fn run(mut self) {
         use futures::future::{self, FutureExt};
@@ -125,13 +131,15 @@ impl Room {
                 if let Some(client) = recv.as_mut().take_output() {
                     let client = client.unwrap();
                     let username = client.username();
-                    
+
                     self.clients.insert(username, Some(client));
                     log::info!("accepted user '{}' to room '{}'", username, self.name);
                 }
             }
 
             if self.clients.is_empty() {
+                // yield the current task to allow to accept
+                // another clients if work in single thread
                 tokio::task::yield_now().await;
                 continue;
             }

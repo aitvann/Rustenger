@@ -2,9 +2,10 @@ use crate::room::{Error, Result, Server};
 use crate::utils::framed_read;
 use futures::SinkExt;
 use rustenger_shared::{
+    account::{Account, Color, Password, Username},
     codec::ServerCodec,
     message::{ClientMessage, Command, Response, ServerMessage, SignInError},
-    Account, Color, Password, RoomName, Username,
+    RoomName,
 };
 use std::{fmt, result};
 use tokio::net::TcpStream;

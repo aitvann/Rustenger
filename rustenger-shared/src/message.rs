@@ -1,4 +1,7 @@
-use super::{Account, Color, Password, RoomName, Username};
+use super::{
+    account::{Account, Color, Password, Username},
+    RoomName,
+};
 use arrayvec::ArrayString;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
