@@ -2,8 +2,8 @@ use super::{
     account::{Account, Color, Password, Username},
     RoomName,
 };
-use chrono::{DateTime, Utc};
 use arrayvec::ArrayString;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 

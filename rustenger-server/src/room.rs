@@ -1,10 +1,14 @@
 use crate::client::Client;
 use crate::utils::EntryExt;
-use rustenger_shared::{account::{ Username, Account}, message::UserMessage, RoomName};
 use chrono::Utc;
+use rustenger_shared::{
+    account::{Account, Username},
+    message::UserMessage,
+    RoomName,
+};
+use std::{collections::HashMap, future::Future, sync::Arc};
 use thiserror::Error;
 use tokio::sync::{mpsc, Mutex, RwLock};
-use std::{collections::HashMap, future::Future, sync::Arc};
 
 pub type RoomMsgTx = mpsc::Sender<Client>;
 pub type RoomMsgRx = mpsc::Receiver<Client>;
@@ -137,7 +141,7 @@ impl Room {
     /// check if new client is avaliable and accpet it
     fn accept_client(&mut self) {
         use futures::future;
-        
+
         let recv = future::maybe_done(self.msg_rx.recv());
         futures::pin_mut!(recv);
         if let Some(client) = recv.as_mut().take_output() {
@@ -145,7 +149,11 @@ impl Room {
             let username = client.username();
 
             self.clients.insert(username, Some(client));
-            log::info!("accepted client with name '{}' to room '{}'", username, self.name);
+            log::info!(
+                "accepted client with name '{}' to room '{}'",
+                username,
+                self.name
+            );
         }
     }
 
@@ -158,10 +166,7 @@ impl Room {
             let client = client.as_mut().unwrap();
             let adresser = client.account();
 
-            client
-                .read()
-                .map(move |m| (adresser, m))
-                .boxed()
+            client.read().map(move |m| (adresser, m)).boxed()
         });
         let (adresser, res) = future::select_all(iter).await.0;
 
@@ -191,10 +196,13 @@ impl Room {
 
     /// sends messages to all clients except 'account'
     async fn broadcast(&mut self, adresser: Account, text: UserMessage) -> Result<()> {
-        use rustenger_shared::message::{ServerMessage, AccountMessage};
+        use rustenger_shared::message::{AccountMessage, ServerMessage};
 
-        let utc = Utc::now();
-        let msg = AccountMessage { text, adresser, utc };
+        let msg = AccountMessage {
+            text,
+            adresser,
+            utc: Utc::now(),
+        };
 
         for client in self
             .clients
