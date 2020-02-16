@@ -90,6 +90,11 @@ impl Client {
         self.framed.send(msg).await.map_err(Error::Bincode)
     }
 
+    /// returns account
+    pub fn account(&self) -> Account {
+        self.account
+    }
+
     /// returns username
     pub fn username(&self) -> Username {
         self.account.username()

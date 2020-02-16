@@ -2,10 +2,12 @@ use super::{
     account::{Account, Color, Password, Username},
     RoomName,
 };
+use chrono::{DateTime, Utc};
 use arrayvec::ArrayString;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+/// contains only text of message
 pub type UserMessage = ArrayString<[u8; 1024]>;
 
 /// message from client
@@ -48,14 +50,14 @@ pub enum Command {
 /// message form server
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ServerMessage {
-    UserMessage(UserMessage),
+    AccountMessage(AccountMessage),
     Response(Response),
 }
 
 impl ServerMessage {
-    pub fn user_message(self) -> Option<UserMessage> {
+    pub fn account_message(self) -> Option<AccountMessage> {
         match self {
-            Self::UserMessage(x) => Some(x),
+            Self::AccountMessage(x) => Some(x),
             _ => None,
         }
     }
@@ -66,6 +68,14 @@ impl ServerMessage {
             _ => None,
         }
     }
+}
+
+/// UserMessage with adresser and time
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct AccountMessage {
+    pub text: UserMessage,
+    pub adresser: Account,
+    pub utc: DateTime<Utc>,
 }
 
 /// response to client Request

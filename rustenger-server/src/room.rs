@@ -1,9 +1,10 @@
 use crate::client::Client;
 use crate::utils::EntryExt;
-use rustenger_shared::{account::Username, message::UserMessage, RoomName};
-use std::{collections::HashMap, future::Future, sync::Arc};
+use rustenger_shared::{account::{ Username, Account}, message::UserMessage, RoomName};
+use chrono::Utc;
 use thiserror::Error;
 use tokio::sync::{mpsc, Mutex, RwLock};
+use std::{collections::HashMap, future::Future, sync::Arc};
 
 pub type RoomMsgTx = mpsc::Sender<Client>;
 pub type RoomMsgRx = mpsc::Receiver<Client>;
@@ -94,7 +95,7 @@ impl Server {
     }
 }
 
-pub type Clients = HashMap<RoomName, Option<Client>>;
+pub type Clients = HashMap<Username, Option<Client>>;
 
 pub struct Room {
     name: RoomName,
@@ -115,27 +116,12 @@ impl Room {
         }
     }
 
-    // TODO: make more usefull doc
-    // TODO: separate this function to more functions
     /// runs the room
     pub async fn run(mut self) {
-        use futures::future::{self, FutureExt};
-        use rustenger_shared::message::ClientMessage;
-
         log::info!("run room: {}", self.name());
 
         loop {
-            {
-                let recv = future::maybe_done(self.msg_rx.recv());
-                futures::pin_mut!(recv);
-                if let Some(client) = recv.as_mut().take_output() {
-                    let client = client.unwrap();
-                    let username = client.username();
-
-                    self.clients.insert(username, Some(client));
-                    log::info!("accepted user '{}' to room '{}'", username, self.name);
-                }
-            }
+            self.accept_client();
 
             if self.clients.is_empty() {
                 // yield the current task to allow to accept
@@ -144,52 +130,79 @@ impl Room {
                 continue;
             }
 
-            let iter = self.clients.iter_mut().map(|(name, client)| {
-                client
-                    .as_mut()
-                    .unwrap()
-                    .read()
-                    .map(move |m| (*name, m))
-                    .boxed()
-            });
-            let (name, res) = future::select_all(iter).await.0;
+            self.update().await;
+        }
+    }
 
-            match res {
-                Err(e) => log::error!("failed to recieve client message: {}", e),
-                Ok(ClientMessage::UserMessage(msg)) => {
-                    if let Err(e) = self.broadcast(msg, name).await {
-                        log::error!("failed to broadcast user message: {}", e);
-                    }
+    /// check if new client is avaliable and accpet it
+    fn accept_client(&mut self) {
+        use futures::future;
+        
+        let recv = future::maybe_done(self.msg_rx.recv());
+        futures::pin_mut!(recv);
+        if let Some(client) = recv.as_mut().take_output() {
+            let client = client.unwrap();
+            let username = client.username();
+
+            self.clients.insert(username, Some(client));
+            log::info!("accepted client with name '{}' to room '{}'", username, self.name);
+        }
+    }
+
+    /// selects clients messages and handles them
+    async fn update(&mut self) {
+        use futures::future::{self, FutureExt};
+        use rustenger_shared::message::ClientMessage;
+
+        let iter = self.clients.values_mut().map(|client| {
+            let client = client.as_mut().unwrap();
+            let adresser = client.account();
+
+            client
+                .read()
+                .map(move |m| (adresser, m))
+                .boxed()
+        });
+        let (adresser, res) = future::select_all(iter).await.0;
+
+        match res {
+            Err(e) => log::error!("failed to recieve client message: {}", e),
+            Ok(ClientMessage::UserMessage(msg)) => {
+                if let Err(e) = self.broadcast(adresser, msg).await {
+                    log::error!("failed to broadcast user message: {}", e);
                 }
-                Ok(ClientMessage::Command(cmd)) => {
-                    let mut entry = self.clients.entry(name).occupied().unwrap();
-                    let client = entry.get_mut().take().unwrap();
+            }
+            Ok(ClientMessage::Command(cmd)) => {
+                let mut entry = self.clients.entry(adresser.username()).occupied().unwrap();
+                let client = entry.get_mut().take().unwrap();
 
-                    match client.handle(cmd).await {
-                        Err(e) => log::error!("failed to handle command: {}", e),
-                        Ok(None) => {
-                            entry.remove();
-                        }
-                        Ok(Some(client)) => {
-                            *entry.get_mut() = Some(client);
-                        }
+                match client.handle(cmd).await {
+                    Err(e) => log::error!("failed to handle command: {}", e),
+                    Ok(None) => {
+                        entry.remove();
+                    }
+                    Ok(Some(client)) => {
+                        *entry.get_mut() = Some(client);
                     }
                 }
             }
         }
     }
 
-    /// sends messages to all clients except 'skip'
-    async fn broadcast(&mut self, msg: UserMessage, skip: Username) -> Result<()> {
-        use rustenger_shared::message::ServerMessage;
+    /// sends messages to all clients except 'account'
+    async fn broadcast(&mut self, adresser: Account, text: UserMessage) -> Result<()> {
+        use rustenger_shared::message::{ServerMessage, AccountMessage};
+
+        let utc = Utc::now();
+        let msg = AccountMessage { text, adresser, utc };
 
         for client in self
             .clients
             .values_mut()
             .map(|c| c.as_mut().unwrap())
-            .filter(|c| c.username() != skip)
+            .filter(|c| c.username() != adresser.username())
         {
-            client.write(ServerMessage::UserMessage(msg)).await?;
+            client.write(ServerMessage::AccountMessage(msg)).await?;
         }
 
         Ok(())
