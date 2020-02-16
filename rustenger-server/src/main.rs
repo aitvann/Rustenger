@@ -44,7 +44,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // selects the first available address from the arguments
     let mut addrs = matches.values_of("addresses");
     let iter = addrs.iter_mut().flatten();
-    let stream = stream::iter(iter)
+    let mut listener = stream::iter(iter)
         .filter_map(async move |a| a.parse().ok())
         .chain(stream::once(future::ready(
             (DEFAULT_ADDR, DEFAULT_PORT).into(),
@@ -54,9 +54,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .await
                 .inspect_err(|e| log::warn!("failed to bind to address: {}; error: {}", a, e))
                 .ok()
-        });
-    futures::pin_mut!(stream);
-    let mut listener = stream
+        })
+        .boxed()
         .next()
         .await
         .expect("failed to select listener address");

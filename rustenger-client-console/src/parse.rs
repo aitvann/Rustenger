@@ -43,7 +43,7 @@ macro_rules! count_tts {
 macro_rules! parse_args {
     ($input:expr => $cmd:ident: $( $arg:ty ),+ ) => {{
         let expected = count_tts!( $( $arg )+ );
-        check_argc_num($input, expected)?;
+        check_args_num($input, expected)?;
 
         let mut iter = $input.split_whitespace();
         Command::$cmd(
@@ -53,13 +53,13 @@ macro_rules! parse_args {
     }};
 
     ($input:expr => $cmd:ident) => {{
-        check_argc_num($input, 0)?;
+        check_args_num($input, 0)?;
         Command::$cmd
     }};
 }
 
 /// checks if the number of arguments matches the expected
-fn check_argc_num(input: &str, expected: usize) -> Result<(), Error> {
+fn check_args_num(input: &str, expected: usize) -> Result<(), Error> {
     let found = input.split_whitespace().count();
     if expected != found {
         return Err(Error::InvalidArgumentNum { expected, found });

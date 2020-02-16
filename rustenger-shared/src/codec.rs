@@ -5,15 +5,15 @@ use tokio_util::codec::{Decoder, Encoder};
 
 /// Codec for Client -> Server transport
 #[derive(Default)]
-pub struct ClientCodec;
+pub struct ClientWriteCodec;
 
-impl ClientCodec {
+impl ClientWriteCodec {
     pub fn new() -> Self {
         Self
     }
 }
 
-impl Encoder for ClientCodec {
+impl Encoder for ClientWriteCodec {
     type Item = ClientMessage;
     type Error = bincode::Error;
 
@@ -45,7 +45,18 @@ impl Encoder for ClientCodec {
     }
 }
 
-impl Decoder for ClientCodec {
+/// Codec for Client <- Server transport
+#[derive(Default)]
+pub struct ClientReadCodec;
+
+impl ClientReadCodec {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+
+impl Decoder for ClientWriteCodec {
     type Item = ServerMessage;
     type Error = bincode::Error;
 
@@ -73,7 +84,7 @@ impl Decoder for ClientCodec {
     }
 }
 
-/// Codec for Server -> Client transport
+/// Codec for Server -> Client and Server <- Client transport
 #[derive(Default)]
 pub struct ServerCodec;
 
