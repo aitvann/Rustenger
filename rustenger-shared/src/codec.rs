@@ -55,7 +55,7 @@ impl ClientReadCodec {
     }
 }
 
-impl Decoder for ClientWriteCodec {
+impl Decoder for ClientReadCodec {
     type Item = ServerMessage;
     type Error = bincode::Error;
 
